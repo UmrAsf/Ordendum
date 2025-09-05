@@ -1,3 +1,6 @@
+Got it. Here’s a clean, human-written README with plain Markdown (no emojis, no fancy symbols).
+
+```markdown
 # Ordendum — Warehouse & Office Order Tracking
 
 Ordendum is a desktop app that replaces a shared spreadsheet for warehouse and office operations. It provides separate role-based views, simple status rules, and a cleaner workflow so orders move from received to ready to shipped without breaking dependencies.
@@ -35,7 +38,9 @@ Ordendum is a desktop app that replaces a shared spreadsheet for warehouse and o
 - HTML, CSS, JavaScript (UI)
 - Local persistence (for example JSON or a lightweight store; implementation detail)
 
-## Project structure
+## Project structure (example)
+
+```
 
 Ordendum/
 ├─ app/                  # UI: HTML/CSS/JS
@@ -48,6 +53,8 @@ Ordendum/
 ├─ package.json
 ├─ .gitignore
 └─ README.md
+
+````
 
 ## Getting started
 
