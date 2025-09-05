@@ -1,0 +1,22 @@
+{
+  "name": "ordendum",
+  "version": "1.0.0",
+  "description": "Warehouse/Office tracking app",
+  "author": "Your Name",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "clean": "rimraf out dist node_modules/.cache",
+    "pack:win": "electron-packager . Ordendum --platform=win32 --arch=x64 --out=out --overwrite --asar --icon=assets/icon.ico --prune=true",
+    "pack:mac": "electron-packager . Ordendum --platform=darwin --arch=x64,arm64 --out=out --overwrite --asar --icon=assets/icon.icns --prune=true",
+    "pack:linux": "electron-packager . Ordendum --platform=linux --arch=x64 --out=out --overwrite --asar --icon=assets/icon.png --prune=true"
+  },
+  "dependencies": {
+    "firebase": "^12.0.0"
+  },
+  "devDependencies": {
+    "electron": "^37.2.6",
+    "electron-packager": "^17.0.0",
+    "rimraf": "^5.0.0"
+  }
+}

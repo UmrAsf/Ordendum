@@ -1,0 +1,2770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ORDENDUM</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    /* ====== Pro App Look & Feel ====== */
+:root{
+  --primary:#0f172a;
+  --secondary:#334155;
+  --accent:#2563eb;
+  --accent-dark:#1d4ed8;
+  --bg:#f6f7fb;
+  --surface:#ffffff;
+  --radius:12px;
+  --shadow:0 10px 30px rgba(2,6,23,.06);
+  --control-h:42px;
+  --muted:#64748b;
+  --border:#e5e7eb;
+  --success:#16a34a;
+  --danger:#ef4444;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; padding:0;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  color:var(--primary);
+  background:var(--bg);
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+
+h1{font-size:28px; font-weight:800; letter-spacing:.2px; margin:0; color:var(--primary)}
+h2{font-size:18px; font-weight:700; margin:0 0 10px; color:var(--secondary)}
+p{margin:0}
+
+/* Buttons */
+button{
+  background:var(--accent); color:#fff; border:none; border-radius:10px;
+  padding:10px 14px; height:var(--control-h); font-size:14px; font-weight:600;
+  cursor:pointer; transition:transform .06s ease, background .2s ease, box-shadow .2s ease;
+  box-shadow:0 6px 14px rgba(37,99,235,.15);
+}
+button:hover{ background:var(--accent-dark) }
+button:active{ transform:translateY(1px) }
+.btn-gray{ background:#64748b }
+.btn-danger{ background:var(--danger) }
+
+/* --- Make Entertain Call tiny (initials) --- */
+/* Inline editors in tables */
+.data-table td input.editable-text[data-field="entertainCall"]{
+  width: 72px;            /* super compact */
+  max-width: 72px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  text-align: center;
+  padding: 8px 6px;
+}
+input[type="checkbox"] {
+  vertical-align: middle;
+}
+label, span {
+  vertical-align: middle;
+}
+/* Add/Edit forms (new order + modal edit) */
+input[name="entertainCall"]{
+  width: 90px;
+  max-width: 90px;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+/* Make sure the auth overlay only shows when we want it */
+.auth-wrap.hidden { display: none !important; }
+
+/* Card: do NOT clip content; create its own stacking context */
+section{
+  background: var(--surface);
+  padding: 16px;
+  margin: 16px 0;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  position: relative;
+  isolation: isolate;
+}
+section.collapsed > :not(h2) { display: none !important; }
+
+
+/* --- H2 header layout: title left, maximize dead center, collapse right --- */
+section > h2{
+  display: grid;
+  grid-template-columns: 1fr max-content 1fr; /* center column shrinks to button */
+  align-items: center;
+  gap: 8px;
+}
+
+/* Ensure *only* these three participate as intended */
+section > h2 .h2-title{
+  grid-column: 1;
+  justify-self: start;
+}
+section > h2 .section-max-btn,
+section > h2 .section-close-btn{
+  grid-column: 2;
+  justify-self: center;         /* hard center */
+}
+section > h2 .collapse-btn{
+  grid-column: 3;
+  justify-self: end;            /* hard right */
+}
+
+/* If a section has NO maximize button, keep collapse on the right anyway */
+section > h2:not(:has(.section-max-btn)) .collapse-btn,
+section > h2:not(:has(.section-close-btn)) .collapse-btn{
+  grid-column: 3;
+  justify-self: end;
+}
+
+/* Guard: any other children fall back to column 1 with the title */
+section > h2 > :not(.h2-title):not(.section-max-btn):not(.section-close-btn):not(.collapse-btn){
+  grid-column: 1;
+  justify-self: start;
+}
+
+
+.h2-title {
+  grid-column: 1;
+  justify-self: start;
+}
+
+.section-max-btn, .section-close-btn{
+  border: none; 
+  border-radius: 8px; 
+  padding: 6px 10px; 
+  font-weight: 700; 
+  font-size: 13px;
+  cursor: pointer; 
+  box-shadow: 0 2px 6px rgba(0,0,0,.12); 
+  transition: transform .15s, filter .2s;
+  grid-column: 2;
+  justify-self: center;
+}
+
+.collapse-btn{
+  appearance: none; 
+  min-width: 32px; 
+  height: 28px; 
+  border: 1px solid var(--border);
+  border-radius: 8px; 
+  background: #f1f5f9; 
+  cursor: pointer; 
+  line-height: 1;
+  grid-column: 3;
+  justify-self: end;
+}
+
+.collapse-btn:hover{ 
+  background: #e2e8f0; 
+}
+
+.h2-maximize {
+  flex: 0 0 auto;   /* Center button */
+  margin: 0 auto;   /* Force it into the middle */
+}
+
+/* Table wrapper that owns the clipping */
+.card-table{
+  border-radius:12px; background:#fff; box-shadow:inset 0 0 0 1px rgba(0,0,0,.04);
+  overflow:hidden; /* sticky thead won't bleed outside */
+}
+.table-scroll{ overflow-x:auto; }
+.data-table{
+  width:max-content; min-width:100%;
+  border-collapse:collapse; table-layout:fixed;
+}
+.data-table th, .data-table td{
+  padding:10px 8px; text-align:center; vertical-align:middle; white-space:nowrap;
+}
+.data-table thead th{
+  position:sticky; top:0; z-index:1;
+  background:var(--secondary); color:#fff; border-bottom:1px solid rgba(255,255,255,.15);
+}
+.card-table .data-table thead th:first-child{ border-top-left-radius:12px; }
+.card-table .data-table thead th:last-child{  border-top-right-radius:12px; }
+
+/* Source dot always visible and sized */
+.source-cell{ display:flex; align-items:center; justify-content:center; width:48px; }
+.source-dot{ width:14px; height:14px; border-radius:999px; display:inline-block; box-shadow:0 0 0 2px rgba(0,0,0,.06); }
+
+
+.card-header{
+  display:flex;
+  align-items:center;           /* vertical center */
+  justify-content:space-between;/* title left, actions right */
+  gap:12px;
+  margin-bottom:10px;
+}
+
+.card-title{ margin:0; font-size:18px; font-weight:700; color:var(--secondary); }
+.card-actions{ display:flex; align-items:center; gap:8px; }
+
+.section-max-btn{ background:linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; }
+.section-close-btn{ background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; }
+.section-max-btn:hover, .section-close-btn:hover{ filter:brightness(1.05); transform:translateY(-1px); }
+
+
+
+#cardBackdrop{
+  position: fixed; inset: 0; background: rgba(2,6,23,.45);
+  z-index: 9998; display: none;
+}
+
+/* Fullscreen card state */
+section.is-maximized{
+  position: fixed; inset: 32px; margin: 0 auto;
+  z-index: 9999; max-width: min(1400px, 96vw);
+  display: flex; flex-direction: column;
+}
+
+/* Center the big card content; let it scroll if needed */
+section.is-maximized .table-scroll{ overflow: auto }
+section.is-maximized .card-table{ flex: 1 1 auto }
+
+/* Optional: lock body scroll when a card is maximized */
+body.lock-scroll{ overflow: hidden }
+
+/* Tighten inline editors */
+.data-table td input.editable-text[data-field="entertainCall"]{
+  width:60px; max-width:80px; text-align:center; padding:6px 8px; height:34px;
+}.data-table td input.editable-text{ max-width:220px }
+.data-table td input[type="checkbox"]{ width:16px; height:16px }
+
+/* Toolbar rows */
+.row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center }
+.grow{ flex:1 }
+
+/* Form inputs */
+input,select,textarea{
+  height:var(--control-h);
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:#fff; font-size:14px;
+  transition: box-shadow .2s ease, border-color .2s ease;
+}
+textarea{ min-height:96px; height:auto; resize:vertical }
+input:focus,select:focus,textarea:focus{
+  outline:none; border-color:var(--accent);
+  box-shadow:0 0 0 4px rgba(37,99,235,.12);
+}
+
+/* Badges */
+.badge{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 10px; border-radius:999px; background:#eef2ff; color:#1e3a8a; font-weight:600; font-size:12px;
+}
+
+/* Office “Add Order” form grid — stable layout */
+.form-grid{ display:grid; grid-template-columns:repeat(12,1fr); gap:12px; }
+.fieldset{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:14px; box-shadow:var(--shadow); }
+.fieldset h3{ margin:0 0 10px; font-size:16px; color:var(--secondary); }
+.field{ display:flex; flex-direction:column; gap:6px; }
+.w-3{ grid-column:span 3; } .w-4{ grid-column:span 4; } .w-6{ grid-column:span 6; } .w-12{ grid-column:span 12; }
+
+/* Auth (login/signup) */
+.auth-wrap{
+  position:fixed; inset:0; display:grid; place-items:center;
+  background: radial-gradient(1200px 600px at 20% -10%, #dbeafe, transparent),
+              radial-gradient(1200px 600px at 120% 120%, #fce7f3, transparent),
+              var(--bg);
+  z-index:9999; padding:24px;
+}
+.auth-card{
+  width:420px; max-width:92vw; background:#fff; border:1px solid var(--border);
+  border-radius:16px; padding:36px 32px; text-align:center; box-shadow:var(--shadow);
+}
+.auth-title{ font-size:28px; font-weight:800; margin:0 0 14px }
+.auth-field input{ width:100%; margin-bottom:12px }
+.auth-actions{ display:flex; gap:10px; margin-top:4px }
+.auth-error{ color:var(--danger); min-height:18px; font-size:13px; margin-top:6px }
+.auth-muted{ color:var(--muted); font-size:12px; margin-top:12px }
+
+/* Typeahead */
+.ta-wrap{ position:relative }
+.ta-input{ width:100% }
+.ta-list{
+  position:absolute; left:0; right:0; top:calc(100% + 6px);
+  background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow);
+  max-height:240px; overflow:auto; z-index:50;
+}
+.ta-item{ padding:10px 12px; cursor:pointer }
+.ta-item:hover,.ta-item[aria-selected="true"]{ background:#f1f5ff }
+.ta-empty{ color:#6b7280; padding:8px 12px; font-size:12px }
+.section--maximized{
+  position:fixed; inset:0; z-index:10000;
+  background:rgba(2,6,23,.5);
+  display:grid; place-items:center;
+  padding:24px;
+}
+.section--maximized .section__inner{
+  background:#fff; border-radius:16px; border:1px solid var(--border);
+  box-shadow:0 30px 60px rgba(2,6,23,.35);
+  width:min(1200px, 96vw);
+  max-height:90vh; overflow:auto;
+  padding:16px;
+}
+.section--maximized .card-header{ position:sticky; top:0; background:#fff; z-index:2; padding-bottom:8px; }
+
+/* Fix: avoid any rogue extra nav rows breaking layout */
+#viewButtons{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+#viewButtons .hidden{ display:none !important; }
+/* Modal */
+#editModal{ display:none; position:fixed; inset:0; background:rgba(2,6,23,.55); z-index:10000 }
+#editCard{
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:min(680px,92vw); max-height:86vh; overflow:auto;
+  background:#fff; border-radius:16px; padding:22px; box-shadow:0 30px 60px rgba(2,6,23,.35);
+}
+
+/* Splash / Loading */
+#splash{
+  position:fixed; inset:0; z-index:100000;
+  display:grid; place-items:center;
+  background: radial-gradient(900px 500px at 10% -20%, #e0f2fe, transparent),
+              radial-gradient(900px 500px at 110% 120%, #ede9fe, transparent),
+              #ffffff;
+}
+.splash-card{
+  background:#fff; border:1px solid var(--border); border-radius:18px;
+  padding:28px 32px; text-align:center; box-shadow:var(--shadow);
+}
+.splash-title{ font-size:22px; font-weight:800; color:var(--primary); margin:8px 0 0 }
+.spinner{
+  width:36px; height:36px; border-radius:999px; border:3px solid #e5e7eb; border-top-color:var(--accent);
+  animation:spin 1s linear infinite; margin:0 auto;
+}
+@keyframes spin{ to{ transform:rotate(360deg) } }
+.splash-fade-out{ animation:fadeOut .45s ease forwards }
+@keyframes fadeOut{ to{ opacity:0; transform:scale(.98)} }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce){
+  *{ transition:none !important; animation:none !important }
+}
+
+
+  </style>
+</head>
+<body>
+  <!-- Splash / Loading -->
+<div id="splash">
+  <div class="splash-card">
+    <div class="spinner"></div>
+    <div class="splash-title">Ordendum</div>
+  </div>
+</div>
+
+  <!-- Edit Order Modal -->
+  <div id="editModal">
+    <div id="editCard">
+      <h3 style="margin-top:0;">Edit Order</h3>
+      <form id="editOrderForm">
+        <input type="hidden" id="editOrderId">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:10px;">
+          <input name="orderNumber" placeholder="Order Number" required>
+          <input name="customer" placeholder="Customer" required>
+          <input name="product" placeholder="Product" required>
+          <select name="pkg" required>
+            <option value="">Package</option><option>Box</option><option>Bag</option><option>Pack</option>
+          </select>
+          <input name="weight" type="number" min="0" placeholder="Weight">
+          <input name="quantity" type="number" min="1" placeholder="Quantity">
+          <select name="method">
+            <option value="">Method</option><option value="ltl">LTL</option><option value="call">Will Call</option>
+            <option value="delivery">Delivery</option><option value="ground">Ground</option>
+          </select>
+          <input name="carrier" placeholder="Carrier">
+          <input name="quotedAmount" type="number" step="0.01" placeholder="Quoted Amount">
+          <input name="shippingPaid" type="number" step="0.01" placeholder="Shipping Paid">
+          <input name="customerPaid" type="number" step="0.01" placeholder="Customer Paid">
+          <input name="comments" placeholder="Comments">
+          <div style="display:flex; gap:10px; align-items:center;">
+            <label><input type="checkbox" name="clean"> Clean</label>
+            <label><input type="checkbox" name="stic"> Stic</label>
+            <label><input type="checkbox" name="metal"> Metal</label>
+            <label><input type="checkbox" name="shipToday"> Ship Today</label>
+          </div>
+          <select name="source" id="editSource">
+            <option value="">Source</option>
+            <option>Amazon</option><option>eBay</option><option>Walmart</option>
+            <option>Shopify</option><option>WipingHub</option><option>InStore</option>
+          </select>
+          <label id="editChargedWrap" style="display:none;"><input type="checkbox" name="charged"> Charged</label>
+          <input name="entertainCall" placeholder="Entertain Call">
+        </div>
+        <div class="row" style="margin-top:14px;">
+          <button type="submit" class="grow">Save Changes</button>
+          <button type="button" class="btn-gray grow" id="cancelEdit">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+<!-- New Order Modal -->
+<div id="newOrderModal" style="display:none; position:fixed; inset:0; background:rgba(2,6,23,.55); z-index:10000">
+  <div id="newOrderCard" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:min(720px,92vw); max-height:86vh; overflow:auto; background:#fff; border-radius:16px; padding:22px; box-shadow:0 30px 60px rgba(2,6,23,.35);">
+    <h3 style="margin-top:0;">Add New Order</h3>
+    <form id="newOrderForm">
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap:10px;">
+        <input name="orderNumber" placeholder="Order Number" required>
+
+        <div id="newCustomerTA"></div>
+        <div id="newProductTA"></div>
+
+        <!-- NEW typeaheads -->
+        <div id="newPackageTA"></div>
+        <input name="weight" type="number" min="0" placeholder="Weight (lbs)" required>
+        <input name="quantity" type="number" min="1" placeholder="Quantity" required>
+
+        <div id="newMethodTA"></div>
+        <div id="newCarrierTA"></div>
+
+        <input name="quotedAmount" type="number" step="0.01" placeholder="Quoted Amount" required>
+        <input name="shippingPaid" type="number" step="0.01" placeholder="Shipping Paid">
+        <input name="customerPaid" type="number" step="0.01" placeholder="Customer Paid" required>
+
+        <div id="newSourceTA"></div>
+        <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" name="charged"> Charged</label>
+        <input name="entertainCall" placeholder="Entertain Call (optional)">
+        <input name="comments" placeholder="Comments (optional)">
+      </div>
+
+      <div class="row" style="margin-top:14px;">
+        <button type="submit" class="grow">Add Order</button>
+        <button type="button" class="btn-gray grow" id="cancelNewOrder">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+  <!-- Login / Signup -->
+<div id="authWrap" class="auth-wrap" style="display:none;">
+  <!-- Login -->
+  <div id="loginView" class="auth-card" style="display:none;">
+    <h1 class="auth-title">Welcome back</h1>
+    <div class="auth-row">
+      <div class="auth-field"><input id="email" type="email" placeholder="Email" autocomplete="email"></div>
+      <div class="auth-field"><input id="password" type="password" placeholder="Password" autocomplete="current-password"></div>
+      <div class="auth-actions">
+        <button id="loginBtn">Log In</button>
+        <button class="btn-gray" id="showSignUp">Sign Up</button>
+      </div>
+      <div id="loginError" class="auth-error"></div>
+      <div class="auth-muted">By continuing you agree to our internal usage policy.</div>
+    </div>
+  </div>
+
+  <!-- Sign Up -->
+  <div id="signUpView" class="auth-card" style="display:none;">
+    <h2 class="auth-title">Create an account</h2>
+    <div class="auth-row">
+      <div class="auth-field"><input id="signupEmail" type="email" placeholder="Email" autocomplete="email" /></div>
+      <div class="auth-field"><input id="signupPassword" type="password" placeholder="Password" autocomplete="new-password" /></div>
+      <div class="auth-field"><input id="signupConfirm" type="password" placeholder="Confirm Password" autocomplete="new-password" /></div>
+      <div class="auth-actions">
+        <button id="signupBtn">Sign Up</button>
+        <button class="btn-gray" id="showLogin">Back to Login</button>
+      </div>
+      <div id="signupError" class="auth-error"></div>
+    </div>
+  </div>
+</div>
+
+
+
+  <!-- App -->
+  <div id="appView" style="display:none">
+  <header style="
+    position:sticky; top:0; z-index:50; 
+    background:#ffffffcc; backdrop-filter:saturate(180%) blur(8px);
+    border-bottom:1px solid var(--border);">
+    <div style="max-width:1200px; margin:0 auto; padding:14px 16px; display:flex; justify-content:space-between; align-items:center;">
+      <h1>Ordendum</h1>
+      <div class="row">
+        <span id="roleDisplay" class="badge"></span>
+        <button id="logoutBtn" class="btn-danger">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <main style="max-width:1200px; margin:0 auto; padding:16px;">
+    <div class="row" id="viewButtons" style="margin-bottom:10px;">
+      <button id="officeBtn">Office View</button>
+      <button id="warehouseBtn">Warehouse View</button>
+      <button id="adminBtn" style="display:none; background:#7c3aed;">Admin View</button>
+    </div>
+    <div id="content"></div>
+  </main>
+</div>
+
+    
+
+  <script type="module">
+    /* -------------------- Firebase (v9 modular) -------------------- */
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+    import {
+      getFirestore, collection, doc, getDoc, setDoc, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs,
+      serverTimestamp, query, orderBy
+    } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+    import {
+      getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut
+    } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD4ouTTfLPjsmGBT0RTn7qkPuaCbB7xDkk",
+      authDomain: "warehouse-app-8765e.firebaseapp.com",
+      projectId: "warehouse-app-8765e",
+      storageBucket: "warehouse-app-8765e.firebasestorage.app",
+      messagingSenderId: "688257833237",
+      appId: "1:688257833237:web:f9e095338e87bf3c5db11c",
+      measurementId: "G-T5GJKZ3SGP"
+    };
+
+    const app  = initializeApp(firebaseConfig);
+    const db   = getFirestore(app);
+    const auth = getAuth(app);
+
+    // Collections
+    const ordersCol   = collection(db, "orders");
+    const shippedCol  = collection(db, "shippedOrders");
+    const usersCol    = collection(db, "users");
+    const activityCol = collection(db, "activity");
+    // Catalog collections
+// Catalog collections
+const customersCol = collection(db, "customers");
+const productsCol  = collection(db, "products");
+
+// NEW:
+const packagesCol  = collection(db, "packages");
+const sourcesCol   = collection(db, "sources");
+const methodsCol   = collection(db, "methods");
+const carriersCol  = collection(db, "carriers");
+
+// In-memory lists for typeahead
+let customers = [];
+let products  = [];
+
+// NEW:
+let packages = [];
+let sources  = [];
+let methods  = [];
+let carriers = [];
+
+let assignedRole = null; // the role saved in Firestore for this user
+let currentView  = null; // the view we’re looking at ('office' | 'warehouse' | 'admin')
+
+let ordersLoaded  = false;
+let shippedLoaded = false;
+
+// track catalogs
+let customersLoaded=false, productsLoaded=false, packagesLoaded=false,
+    sourcesLoaded=false,   methodsLoaded=false,  carriersLoaded=false;
+
+    /* -------------------- Globals -------------------- */
+    let orders = [];
+    let shippedOrders = [];
+    let currentRole = null;
+    let listenersOn = false;
+
+    const testAccounts = {
+      'office@test.com': { password: 'office123', role: 'office' },
+      'warehouse@test.com': { password: 'warehouse123', role: 'warehouse' },
+      'admin@test.com': { password: 'admin123', role: 'admin' }
+    };
+
+    // Source color map
+    // Legacy defaults (used only as fallback)
+const LEGACY_SOURCE_COLORS = {
+  amazon:   '#ff9900',
+  ebay:     '#86b817',
+  walmart:  '#0071ce',
+  shopify:  '#96bf48',
+  wipinghub:'#2ecc71',
+  instore:  '#34495e'
+};
+
+// Return the color from Sources catalog if present; else fallback to legacy; else gray
+function colorFor(sourceName) {
+  const name = (sourceName || '').trim();
+  if (!name) return '#BDC3C7';
+  const hit = (sources || []).find(s => (s.name || '').toLowerCase() === name.toLowerCase());
+  if (hit && hit.color) return hit.color;
+  return LEGACY_SOURCE_COLORS[name.toLowerCase()] || '#BDC3C7';
+}
+
+
+    /* -------------------- Utilities -------------------- */
+    const $ = sel => document.querySelector(sel);
+    const friendly = k => k.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/^./,s=>s.toUpperCase());
+    function installCollapsers(root = document) {
+  root.querySelectorAll('#content section').forEach(sec => {
+    const h2 = sec.querySelector(':scope > h2');
+    if (!h2) return;
+
+    if (!h2.querySelector('.h2-title')) {
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'h2-title';
+      while (h2.firstChild) titleSpan.appendChild(h2.firstChild);
+      h2.appendChild(titleSpan);
+    }
+
+    if (!h2.querySelector('.collapse-btn')) {
+      const btn = document.createElement('button');
+      btn.className = 'collapse-btn';
+      btn.type = 'button';
+      btn.textContent = '▾';
+      btn.setAttribute('aria-expanded', 'true');
+
+      btn.addEventListener('click', () => {
+        const collapsed = sec.classList.toggle('collapsed');
+        btn.textContent = collapsed ? '▸' : '▾';
+        btn.setAttribute('aria-expanded', String(!collapsed));
+      });
+
+      // Append at the very end → far right
+      h2.appendChild(btn);
+    }
+  });
+}
+
+    async function logActivity({action, detail, targetType=null, targetId=null}) {
+      try {
+        const user = auth.currentUser;
+        const profSnap = user ? await getDoc(doc(db, 'users', user.uid)) : null;
+        const prof = profSnap?.exists() ? profSnap.data() : null;
+        await addDoc(activityCol, {
+          uid: user?.uid || null,
+          email: prof?.email || user?.email || null,
+          role: prof?.role || null,
+          action, detail: detail || '', targetType, targetId,
+          ts: serverTimestamp()
+        });
+      } catch (e) { console.warn('Activity log failed', e); }
+    }
+
+    function canCheck(field, o) {
+      if (currentRole === 'admin') return true;
+      if (field === 'ready')   return currentRole === 'warehouse' && o.rcvd;
+      if (field === 'shipped') return currentRole === 'warehouse' ? (o.rcvd && o.ready) : (o.done && o.ready);
+      if (currentRole === 'warehouse') return field === 'rcvd';
+      if (['done','clean','stic','metal','shipToday'].includes(field)) return true;
+      return false;
+    }
+
+    function loadView(view) {
+  currentView = view;
+
+  if (view === 'admin') {
+    renderAdmin();
+  } else if (view === 'warehouse') {
+    renderWarehouse();
+  } else {
+    renderOffice();
+  }
+
+  updateNavForRole();
+}
+
+
+    
+    /* -------------------- Auth UI toggles -------------------- */
+    $('#showSignUp').onclick = e => { e.preventDefault(); $('#loginView').style.display='none'; $('#signUpView').style.display='block'; };
+    $('#showLogin').onclick  = e => { e.preventDefault(); $('#signUpView').style.display='none'; $('#loginView').style.display='block'; };
+
+    /* -------------------- Signup / Login -------------------- */
+    $('#signupBtn').onclick = async () => {
+      $('#signupError').textContent = '';
+      const email = $('#signupEmail').value.trim();
+      const p1 = $('#signupPassword').value, p2 = $('#signupConfirm').value;
+      if (p1 !== p2) return $('#signupError').textContent = "Passwords don't match";
+      if (p1.length < 6) return $('#signupError').textContent = "Password must be at least 6 characters";
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, p1);
+        await setDoc(doc(db, 'users', cred.user.uid), {
+          role:'office', email, createdAt: new Date().toISOString()
+        });
+        $('#signupEmail').value = $('#signupPassword').value = $('#signupConfirm').value = '';
+      } catch (e) { $('#signupError').textContent = e.message; }
+    };
+
+    $('#loginBtn').onclick = async () => {
+      $('#loginError').textContent = '';
+      const email = $('#email').value.trim().toLowerCase();
+      const password = $('#password').value;
+      if (!email || !password) { $('#loginError').textContent = 'Enter email and password'; return; }
+
+      // test accounts convenience
+      if (testAccounts[email]?.password === password) {
+        try {
+          try { await signInWithEmailAndPassword(auth, email, password); }
+          catch {
+            const cred = await createUserWithEmailAndPassword(auth, email, password);
+            await setDoc(doc(db,'users',cred.user.uid), {
+              role: testAccounts[email].role, email, createdAt: new Date().toISOString()
+            });
+          }
+          $('#email').value=''; $('#password').value='';
+          return;
+        } catch(e){ console.error(e); }
+      }
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        $('#email').value=''; $('#password').value='';
+      } catch (e) { $('#loginError').textContent = e.message; }
+    };
+
+    $('#logoutBtn').addEventListener('click', async () => { try { await signOut(auth); } catch(e){ console.error(e); } });
+
+    /* -------------------- Auth state -------------------- */
+    // Show splash right away (optional if you include it by default)
+showSplash();
+
+onAuthStateChanged(auth, async user => {
+  const authWrap = document.getElementById('authWrap');
+
+  if (!user) {
+    // Show login; hide app
+    if (authWrap) authWrap.style.display = 'grid';
+    document.getElementById('loginView').style.display = 'block';
+    document.getElementById('signUpView').style.display = 'none';
+    document.getElementById('appView').style.display = 'none';
+
+    // splash can hide once the login card is rendered
+    requestAnimationFrame(()=> hideSplash());
+    listenersOn = false;
+    return;
+  }
+
+  // Hide auth, show app
+  if (authWrap) authWrap.style.display = 'none';
+  document.getElementById('loginView').style.display = 'none';
+  document.getElementById('signUpView').style.display = 'none';
+  document.getElementById('appView').style.display = 'block';
+
+  // resolve role & render default view as you already do...
+  const snap = await getDoc(doc(db, 'users', user.uid));
+assignedRole = snap.exists() ? snap.data().role : 'office';
+
+// Show the user’s actual role (not the temporary view)
+$('#roleDisplay').textContent = `Role: ${assignedRole.toUpperCase()}`;
+
+if (!listenersOn) startListeners();
+// default view = admin gets Admin, others get their own view
+loadView(assignedRole === 'admin' ? 'admin' : assignedRole);
+updateNavForRole();
+
+  // Now the first screen is visible → fade out splash
+  requestAnimationFrame(()=> hideSplash());
+});
+function updateNavForRole() {
+  const navRow   = document.getElementById('viewButtons');
+  const adminBtn = document.getElementById('adminBtn');
+
+  // Only admins see the nav row at all
+  if (assignedRole === 'admin') {
+    if (navRow) navRow.style.display = 'flex';
+    if (adminBtn) adminBtn.style.display = 'inline-block';
+  } else {
+    if (navRow) navRow.style.display = 'none';
+  }
+
+  // Back to Admin button (in header) when an admin is browsing Office/Warehouse
+  const headerRightRow = document.querySelector('header .row');
+  if (!headerRightRow) return;
+
+  let backBtn = document.getElementById('backToAdmin');
+  const shouldShowBack = assignedRole === 'admin' && currentView !== 'admin';
+
+  if (shouldShowBack) {
+    if (!backBtn) {
+      backBtn = document.createElement('button');
+      backBtn.id = 'backToAdmin';
+      backBtn.className = 'btn-gray';
+      backBtn.style.marginRight = '8px';
+      backBtn.textContent = 'Back to Admin';
+      backBtn.addEventListener('click', () => loadView('admin'));
+      headerRightRow.prepend(backBtn);
+    }
+    backBtn.style.display = 'inline-block';
+  } else if (backBtn) {
+    backBtn.style.display = 'none';
+  }
+}
+
+
+    /* -------------------- Firestore listeners -------------------- */
+    function startListeners() {
+onSnapshot(ordersCol, s => {
+  ordersLoaded = true;
+  orders = s.docs.map(d => ({ docId: d.id, ...d.data() }));
+  if (currentView === 'warehouse') renderWarehouseOrders();
+  else if (currentView === 'admin') renderAdminActiveOrders();
+  else renderActiveOrders();
+});
+
+onSnapshot(shippedCol, s => {
+  shippedLoaded = true;
+  shippedOrders = s.docs.map(d => ({ docId: d.id, ...d.data() }));
+  if (currentView === 'admin') renderAdminShippedOrders();
+  else if (currentView === 'office') renderShippedOrders();
+});
+
+// Catalogs
+onSnapshot(customersCol, s => {
+  customersLoaded = true;
+  customers = s.docs.map(d => ({ id:d.id, ...(d.data()||{}) }))
+    .filter(x => x.name && x.name.trim()).sort((a,b)=> a.name.localeCompare(b.name));
+  if (currentView === 'admin') renderCatalogAdmin();
+});
+
+onSnapshot(productsCol, s => {
+  productsLoaded = true;
+  products = s.docs.map(d => ({ id:d.id, ...(d.data()||{}) }))
+    .filter(x => x.name && x.name.trim()).sort((a,b)=> a.name.localeCompare(b.name));
+  if (currentView === 'admin') renderCatalogAdmin();
+});
+
+onSnapshot(packagesCol, s => {
+  packagesLoaded = true;
+  packages = s.docs.map(d => ({ id:d.id, ...(d.data()||{}) }))
+    .filter(x => x.name && x.name.trim()).sort((a,b)=> a.name.localeCompare(b.name));
+  if (currentView === 'admin') renderCatalogAdmin();
+});
+
+onSnapshot(sourcesCol, s=>{
+  sourcesLoaded = true; // ✅ add this
+  sources = s.docs.map(d=>({ id:d.id, ...(d.data()||{}) }))
+    .filter(x=> x.name && x.name.trim())
+    .sort((a,b)=> a.name.localeCompare(b.name));
+  if (currentView === 'admin') renderCatalogAdmin();
+});
+
+
+onSnapshot(methodsCol, s => {
+  methodsLoaded = true;
+  methods = s.docs.map(d => ({ id:d.id, ...(d.data()||{}) }))
+    .filter(x => x.name && x.name.trim()).sort((a,b)=> a.name.localeCompare(b.name));
+  if (currentView === 'admin') renderCatalogAdmin();
+});
+
+onSnapshot(carriersCol, s => {
+  carriersLoaded = true;
+  carriers = s.docs.map(d => ({ id:d.id, ...(d.data()||{}) }))
+    .filter(x => x.name && x.name.trim()).sort((a,b)=> a.name.localeCompare(b.name));
+  if (currentView === 'admin') renderCatalogAdmin();
+});
+
+listenersOn = true;
+    }
+// Enter-to-submit (login)
+['email','password'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('keydown', e=>{
+    if (e.key === 'Enter') document.getElementById('loginBtn')?.click();
+  });
+});
+// Enter-to-submit (signup)
+['signupEmail','signupPassword','signupConfirm'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('keydown', e=>{
+    if (e.key === 'Enter') document.getElementById('signupBtn')?.click();
+  });
+});
+
+// Backdrop for fullscreen cards (once)
+(function ensureBackdrop(){
+  if (!document.getElementById('cardBackdrop')) {
+    const d = document.createElement('div');
+    d.id = 'cardBackdrop';
+    document.body.appendChild(d);
+  }
+})();
+
+function installMaximizers(root = document){
+  root.querySelectorAll('section[data-maximizable]').forEach(sec=>{
+    const h2 = sec.querySelector(':scope > h2');
+    if (!h2 || h2.querySelector('.section-max-btn')) return;
+
+    const btn = document.createElement('button');
+    btn.className = 'section-max-btn';
+    btn.type = 'button';
+    btn.textContent = 'Maximize';
+    btn.addEventListener('click', () => toggleMaximize(sec, btn));
+    h2.appendChild(btn);
+  });
+}
+
+function toggleMaximize(sectionEl, btn){
+  const backdrop = document.getElementById('cardBackdrop');
+  const isOn = sectionEl.classList.toggle('is-maximized');
+
+  if (isOn) {
+    // show backdrop, lock scroll, update label
+    backdrop.style.display = 'block';
+    document.body.classList.add('lock-scroll');
+    btn.textContent = 'Close';
+    // close on backdrop click
+    const closeOnBackdrop = (e)=>{
+      if (e.target === backdrop) toggleMaximize(sectionEl, btn);
+    };
+    backdrop.addEventListener('click', closeOnBackdrop, { once:true });
+
+    // close on ESC
+    const onEsc = (e)=>{
+      if (e.key === 'Escape') {
+        toggleMaximize(sectionEl, btn);
+        document.removeEventListener('keydown', onEsc);
+      }
+    };
+    document.addEventListener('keydown', onEsc);
+  } else {
+    // hide backdrop, unlock scroll, restore label
+    backdrop.style.display = 'none';
+    document.body.classList.remove('lock-scroll');
+    btn.textContent = 'Maximize';
+  }
+}
+
+    /* -------------------- Inline editors (charged/entertainCall) -------------------- */
+    async function updateFieldById(colName, id, patch) {
+      await updateDoc(doc(db, colName, id), patch);
+    }
+    function editableText(field, docId, value, col) {
+  const v = (value ?? '').toString().replace(/"/g,'&quot;');
+  return `<input type="text" data-col="${col}" data-docid="${docId}" data-field="${field}" value="${v}" class="small-input editable-text">`;
+}
+function editableCheck(field, docId, checked, col) {
+  return `<input type="checkbox" data-col="${col}" data-docid="${docId}" data-field="${field}" class="editable-check" ${checked?'checked':''}>`;
+}
+
+    function bindEditors(containerEl) {
+  containerEl.querySelectorAll('input.editable-text').forEach(inp => {
+    inp.addEventListener('change', async e => {
+      const { col, docid, field } = e.target.dataset;
+      await updateDoc(doc(db, col, docid), { [field]: e.target.value });
+      logActivity({ action:'order:updateField', detail:`${field}="${e.target.value}"`, targetType:'order', targetId:docid });
+    });
+  });
+  containerEl.querySelectorAll('input.editable-check').forEach(inp => {
+    inp.addEventListener('change', async e => {
+      const { col, docid, field } = e.target.dataset;
+      await updateDoc(doc(db, col, docid), { [field]: e.target.checked });
+      logActivity({ action:'order:updateField', detail:`${field}=${e.target.checked}`, targetType:'order', targetId:docid });
+    });
+  });
+}
+
+
+    /* -------------------- View switchers -------------------- */
+    $('#officeBtn').addEventListener('click', ()=>loadView('office'));
+    $('#warehouseBtn').addEventListener('click', ()=>loadView('warehouse'));
+    $('#adminBtn').addEventListener('click', ()=>loadView('admin'));
+
+    /* -------------------- Office View -------------------- */
+    function renderOffice() {
+  document.getElementById('content').innerHTML = `
+    <section class="form-section">
+      <div class="card-header">
+        <h2 class="card-title">Office</h2>
+        <div class="card-actions">
+          <button id="openNewOrder">Add New Order</button>
+        </div>
+      </div>
+      <p class="muted">Manage orders below. Use “Add New Order” to create one.</p>
+    </section>
+
+    <section class="active-section" data-maximizable>
+      <h2>Active Orders</h2>
+      <div id="activeOrders"></div>
+    </section>
+
+    <section class="shipped-section" data-maximizable>
+      <h2>Shipped Orders</h2>
+      <div class="row" style="justify-content:space-between;">
+        <div class="row">
+          <select id="shippedSearchField">
+            <option value="">Field</option>
+            <option value="orderNumber">Order Number</option>
+            <option value="customer">Customer</option>
+            <option value="date">Date</option>
+          </select>
+          <span id="searchInputs"></span>
+          <button id="shippedSearchBtn">Go</button>
+          <button id="shippedResetBtn" class="btn-gray">Reset</button>
+<label id="shippedRangeWrap" style="margin-left:8px; display:none; align-items:center; gap:6px;">
+  <input type="checkbox" id="shippedUseRange"> <span>Range</span>
+</label>        </div>
+      </div>
+      <div id="shippedOrders"></div>
+    </section>
+  `;
+
+  // Shipped search UI
+  function updateSearchInputs() {
+  const field = $('#shippedSearchField')?.value;
+  const container = $('#searchInputs');
+  const rangeWrap = $('#shippedRangeWrap');      // ← new
+
+  if (!container) return;
+
+  // toggle Range visibility based on field
+  if (rangeWrap) rangeWrap.style.display = (field === 'date') ? 'inline-flex' : 'none';
+
+  if (field === 'date') {
+    container.innerHTML = `
+      <input type="number" id="searchMonth" placeholder="MM" class="small" min="1" max="12">
+      <input type="number" id="searchDay" placeholder="DD" class="small" min="1" max="31">
+      <input type="number" id="searchYear" placeholder="YYYY" class="small" min="2000">
+      <span id="rangeDateInputs" style="display:none;">
+        <input type="number" id="searchMonthEnd" placeholder="MM" class="small" min="1" max="12">
+        <input type="number" id="searchDayEnd" placeholder="DD" class="small" min="1" max="31">
+        <input type="number" id="searchYearEnd" placeholder="YYYY" class="small" min="2000">
+      </span>`;
+
+    const chk = $('#shippedUseRange');
+    const spanEl = () => $('#rangeDateInputs');
+    if (chk) chk.onchange = () => {
+      const s = spanEl(); if (s) s.style.display = chk.checked ? 'inline-flex' : 'none';
+    };
+  } else if (field === 'orderNumber' || field === 'customer') {
+    container.innerHTML = `<input type="text" id="shippedSearchTerm" placeholder="Search ${field}" class="small">`;
+  } else {
+    container.innerHTML = '';
+  }
+}
+
+  $('#shippedSearchField').addEventListener('change', updateSearchInputs);
+  updateSearchInputs();
+  $('#shippedSearchBtn').addEventListener('click', ()=> renderShippedOrders());
+  $('#shippedResetBtn').addEventListener('click', ()=>{
+    $('#shippedSearchField').value=''; updateSearchInputs(); renderShippedOrders();
+  });
+
+  // Open modal
+  document.getElementById('openNewOrder')?.addEventListener('click', ()=>{
+    document.getElementById('newOrderModal').style.display='block';
+    setupNewOrderTA(); // prepare typeaheads
+    updateChargedVisFromSource();
+  });
+
+  renderActiveOrders();
+  renderShippedOrders();
+  installCollapsers();
+  installMaximizers();
+}
+
+
+    function renderActiveOrders() {
+  const c = document.getElementById('activeOrders'); if (!c) return;
+if (!ordersLoaded) { c.innerHTML = '<p class="muted">Loading active orders…</p>'; return; }
+
+
+  // --- READ current filter controls (if they exist)
+  const field   = document.getElementById('activeSearchField')?.value || '';
+  const term    = document.getElementById('activeSearchTerm')?.value?.trim().toLowerCase();
+  const m       = parseInt(document.getElementById('activeSearchMonth')?.value);
+  const d       = parseInt(document.getElementById('activeSearchDay')?.value);
+  const y       = parseInt(document.getElementById('activeSearchYear')?.value);
+  const useRange = document.getElementById('activeUseRange')?.checked;
+
+  // --- DATA (start with a fresh copy, sort like before)
+  let data = orders.slice().sort((a,b)=> (b.done-a.done) || (b.shipToday-a.shipToday));
+
+  // --- APPLY FILTER (same behavior as shipped)
+  if (field === 'date' && m && d && y) {
+    let start = new Date(y, m-1, d);
+    let end   = new Date(y, m-1, d+1);
+    if (useRange) {
+      const me = parseInt(document.getElementById('activeSearchMonthEnd')?.value);
+      const de = parseInt(document.getElementById('activeSearchDayEnd')?.value);
+      const ye = parseInt(document.getElementById('activeSearchYearEnd')?.value);
+      if (me && de && ye) end = new Date(ye, me-1, de+1);
+    }
+    data = data.filter(o => {
+      // Active orders don’t have shippedAt; use createdAt
+      const dt = o.createdAt ? new Date(o.createdAt) : null;
+      return dt && dt >= start && dt < end;
+    });
+  } else if (field && field !== 'date' && term) {
+    data = data.filter(o => ((o[field] ?? '') + '').toLowerCase().includes(term));
+  }
+
+  // --- BUILD UI: toolbar + table (no typeahead filters)
+  const cols = ['orderNumber','customer','product','pkg','weight','quantity','method','carrier','quotedAmount','shippingPaid','customerPaid','total','comments'];
+  const checkboxCols = ['clean','stic','metal','shipToday','done','ready','shipped'];
+
+  const toolbar = `
+    <div class="row" style="gap:8px; align-items:center; margin-bottom:8px; justify-content:space-between;">
+      <div class="row" style="gap:6px; align-items:center;">
+        <select id="activeSearchField">
+          <option value="">Field</option>
+          <option value="orderNumber" ${field==='orderNumber'?'selected':''}>Order Number</option>
+          <option value="customer" ${field==='customer'?'selected':''}>Customer</option>
+          <option value="date" ${field==='date'?'selected':''}>Date</option>
+        </select>
+        <span id="activeSearchInputs"></span>
+        <button id="activeSearchBtn">Go</button>
+        <button id="activeResetBtn" class="btn-gray">Reset</button>
+        <label style="margin-left:8px; ${field==='date'?'':'display:none;'}">
+          <input type="checkbox" id="activeUseRange" ${useRange?'checked':''}> Range
+        </label>
+      </div>
+      ${currentRole==='admin'
+        ? '<button id="deleteActive" class="btn-danger">Delete Selected</button>'
+        : ''
+      }
+    </div>
+  `;
+
+  let html = toolbar + `<div class="card-table">
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Select</th><th>Source</th><th>Charged</th><th>Entertain Call</th>
+          ${cols.map(k=>`<th>${friendly(k)}</th>`).join('')}
+          ${checkboxCols.map(k=>`<th>${friendly(k)}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>`;
+
+
+  if (!data.length) {
+    c.innerHTML = toolbar + '<p><em>No active orders match.</em></p>';
+    wireActiveToolbar();
+    return;
+  }
+
+  data.forEach(o=>{
+    let rowCls = '';
+if (o.done && o.ready)        rowCls = ' both-row';
+else if (o.done || o.ready)   rowCls = ' working-row';
+else if (o.shipToday)         rowCls = ' urgent-row';
+html += `<tr class="${rowCls.trim()}">
+      <td><input type="checkbox" class="delete-checkbox" data-docid="${o.docId}"></td>
+      <td class="source-cell"><span class="source-dot" title="${(o.source||'').trim()||'Unknown'}" style="background:${colorFor(o.source)}"></span></td>
+      <td>${editableCheck('charged', o.docId, !!o.charged, 'orders')}</td>
+      <td>${editableText('entertainCall', o.docId, o.entertainCall, 'orders')}</td>
+      ${cols.map(k=>`<td>${o[k]??''}</td>`).join('')}
+      ${checkboxCols.map(k=>{
+        const chk = o[k] ? 'checked':''; const dis = canCheck(k,o)?'':'disabled';
+        return `<td><input type="checkbox" data-field="${k}" data-docid="${o.docId}" ${chk} ${dis} onchange="onToggle(this)"></td>`;
+      }).join('')}
+    </tr>`;
+  });
+
+html += `</tbody></table></div></div>`;
+  c.innerHTML = html;
+
+  bindEditors(c);
+
+  // Admin "Delete Selected"
+  if (currentRole === 'admin') {
+    document.getElementById('deleteActive')?.addEventListener('click', async () => {
+      const ids = Array.from(c.querySelectorAll('.delete-checkbox:checked'))
+        .map(cb => cb.dataset.docid).filter(Boolean);
+      if (!ids.length) return alert('No orders selected.');
+      if (!confirm(`Delete orders: ${ids.join(', ')}?`)) return;
+      await Promise.all(ids.map(id => deleteDoc(doc(ordersCol, id))));
+      logActivity({ action:'order:delete', detail:`ids=${ids.join(',')}`, targetType:'order' });
+    });
+  }
+
+  // ----- toolbar wiring -----
+  function wireActiveToolbar() {
+    const cont = c; // container
+
+    // render inputs based on current field
+    const inputsHost = cont.querySelector('#activeSearchInputs');
+    const rangeLabel = cont.querySelector('label[for="activeUseRange"]') || cont.querySelector('#activeUseRange')?.closest('label');
+
+    function renderInputs() {
+      const fsel = cont.querySelector('#activeSearchField')?.value || '';
+      if (fsel === 'date') {
+        inputsHost.innerHTML = `
+          <input type="number" id="activeSearchMonth" placeholder="MM" class="small" min="1" max="12">
+          <input type="number" id="activeSearchDay" placeholder="DD" class="small" min="1" max="31">
+          <input type="number" id="activeSearchYear" placeholder="YYYY" class="small" min="2000">
+          <span id="activeRangeInputs" style="display:${cont.querySelector('#activeUseRange')?.checked?'inline-flex':'none'}; gap:6px; margin-left:6px;">
+            <input type="number" id="activeSearchMonthEnd" placeholder="MM" class="small" min="1" max="12">
+            <input type="number" id="activeSearchDayEnd" placeholder="DD" class="small" min="1" max="31">
+            <input type="number" id="activeSearchYearEnd" placeholder="YYYY" class="small" min="2000">
+          </span>
+        `;
+        (rangeLabel || cont.querySelector('#activeUseRange')?.closest('label')).style.display = '';
+      } else if (fsel === 'orderNumber' || fsel === 'customer') {
+        inputsHost.innerHTML = `<input type="text" id="activeSearchTerm" placeholder="Search ${fsel}" class="small">`;
+        (rangeLabel || cont.querySelector('#activeUseRange')?.closest('label')).style.display = 'none';
+      } else {
+        inputsHost.innerHTML = '';
+        (rangeLabel || cont.querySelector('#activeUseRange')?.closest('label')).style.display = 'none';
+      }
+    }
+
+    renderInputs();
+
+    cont.querySelector('#activeSearchField')?.addEventListener('change', () => {
+      renderInputs();
+    });
+
+    cont.querySelector('#activeUseRange')?.addEventListener('change', () => {
+      const on = cont.querySelector('#activeUseRange')?.checked;
+      const span = cont.querySelector('#activeRangeInputs');
+      if (span) span.style.display = on ? 'inline-flex' : 'none';
+    });
+
+    cont.querySelector('#activeSearchBtn')?.addEventListener('click', () => renderActiveOrders());
+    cont.querySelector('#activeResetBtn')?.addEventListener('click', () => {
+      cont.querySelector('#activeSearchField').value = '';
+      const inputs = cont.querySelector('#activeSearchInputs');
+      if (inputs) inputs.innerHTML = '';
+      const range = cont.querySelector('#activeUseRange')?.closest('label');
+      if (range) range.style.display = 'none';
+      renderActiveOrders();
+    });
+  }
+
+  wireActiveToolbar();
+}
+
+function showAuthOverlay(show){
+  const aw = document.getElementById('authWrap');
+  if(!aw)return;
+  if(show){aw.classList.remove('hidden');aw.style.display='grid';}
+  else{aw.classList.add('hidden');aw.style.display='none';}
+}
+// --- Activity "humanizer" helpers ---
+function makeIdMap(list, nameField='name', labelPrefix='') {
+  const m = {};
+  (list||[]).forEach(x=>{
+    if (x?.id) m[x.id] = labelPrefix ? `${labelPrefix}${x[nameField]||x.id}` : (x[nameField]||x.id);
+  });
+  return m;
+}
+
+// Build all maps we might need at render time
+async function buildActivityMaps() {
+  // Users: fetch fresh so emails exist even if userManagement hasn't rendered yet
+  const userSnap = await getDocs(usersCol);
+  const users = userSnap.docs.map(d => ({ id:d.id, ...(d.data()||{}) }));
+  const usersMap = {};
+  users.forEach(u => { usersMap[u.id] = u.email || u.id; });
+
+  // Catalogs (already kept in memory by listeners)
+  const maps = {
+    users: usersMap,
+    customers: makeIdMap(customers),
+    products:  makeIdMap(products),
+    packages:  makeIdMap(packages),
+    methods:   makeIdMap(methods),
+    carriers:  makeIdMap(carriers),
+    sources:   makeIdMap(sources, 'name'),  // might have color/type too but name is fine
+    orders:    {}, // will fill from current arrays
+    shipped:   {}
+  };
+
+  // Orders/shipped: prefer "Order # – Customer"
+  (orders||[]).forEach(o=>{
+    if (o.docId) maps.orders[o.docId] = `#${o.orderNumber||o.docId}${o.customer?` – ${o.customer}`:''}`;
+  });
+  (shippedOrders||[]).forEach(o=>{
+    if (o.docId) maps.shipped[o.docId] = `#${o.orderNumber||o.docId}${o.customer?` – ${o.customer}`:''}`;
+  });
+
+  return maps;
+}
+
+// Turn "sources:abc123" into "Source: Amazon" etc.
+function humanizeDetail(detail, maps) {
+  if (!detail || typeof detail !== 'string') return detail||'';
+
+  const pairs = [
+    { key:'sources',  label:'Source',    map:maps.sources },
+    { key:'customers',label:'Customer',  map:maps.customers },
+    { key:'products', label:'Product',   map:maps.products },
+    { key:'packages', label:'Package',   map:maps.packages },
+    { key:'methods',  label:'Method',    map:maps.methods },
+    { key:'carriers', label:'Carrier',   map:maps.carriers },
+    { key:'users',    label:'User',      map:maps.users },
+    { key:'orders',   label:'Order',     map:maps.orders },
+    { key:'shipped',  label:'Shipped',   map:maps.shipped },
+  ];
+
+  // Replace "<collection>:<id>" tokens with friendly text
+  pairs.forEach(({key,label,map})=>{
+    const re = new RegExp(`\\b${key}:([A-Za-z0-9_-]{10,})\\b`, 'g');
+    detail = detail.replace(re, (_, id) => {
+      const friendly = map?.[id] || id;
+      return `${label}: ${friendly}`;
+    });
+  });
+
+  // Common CSV lists like "ids=a,b,c" → resolve each if possible
+  detail = detail.replace(/\bids=([A-Za-z0-9_,-]+)\b/g, (_, list) => {
+    const ids = list.split(',');
+    const pretty = ids.map(id => (
+      maps.orders[id] || maps.shipped[id] || maps.users[id] || id
+    ));
+    return `IDs: ${pretty.join(', ')}`;
+  });
+
+  return detail;
+}
+
+// Make a friendly Target from targetType/targetId
+function humanizeTarget(it, maps) {
+  const t = (it.targetType||'').toLowerCase();
+  const id = it.targetId || '';
+  if (!id) return '';
+
+  if (t === 'user')    return maps.users[id]   || id;
+  if (t === 'order')   return maps.orders[id]  || maps.shipped[id] || id;
+  if (t === 'source' || t === 'sources')   return maps.sources[id]   || id;
+  if (t === 'product' || t === 'products') return maps.products[id]  || id;
+  if (t === 'customer'|| t === 'customers')return maps.customers[id] || id;
+
+  // Fallback: try any known map
+  return maps.orders[id] || maps.shipped[id] || maps.users[id] ||
+         maps.sources[id] || maps.products[id] || maps.customers[id] || id;
+}
+
+   // --- Reusable Typeahead with "Add New" always on top ---
+function attachTypeahead({ mountId, placeholder, initial='', onPick }) {
+  const mount = document.getElementById(mountId);
+  if (!mount) return;
+
+  mount.innerHTML = `
+    <div class="ta-wrap">
+      <input class="ta-input" id="${mountId}-input" placeholder="${placeholder||''}" autocomplete="off" />
+      <div class="ta-list" id="${mountId}-list" style="display:none;"></div>
+    </div>
+  `;
+  const input = document.getElementById(`${mountId}-input`);
+  const list  = document.getElementById(`${mountId}-list`);
+  if (!input || !list) return;
+  input.value = initial;
+
+  let source = [];   // strings
+  let cursor = -1;
+  let focused = false;
+
+  function openList() { list.style.display = 'block'; }
+  function closeList(){ list.style.display = 'none'; cursor=-1; }
+
+  function render(q) {
+    // Only show UI if focused
+    if (!focused) return;
+
+    const term = (q||'').toLowerCase();
+
+    const uniq = new Map();
+    source.forEach(n=>{
+      const k = (n||'').toLowerCase();
+      if (!uniq.has(k)) uniq.set(k, n);
+    });
+    let items = [...uniq.values()].filter(n => n.toLowerCase().includes(term));
+
+    const addNewRow = `<div class="ta-item" data-value="__ADD_NEW__"><strong>➕ Add New</strong></div>`;
+
+    if (!items.length) {
+      list.innerHTML = addNewRow + `<div class="ta-empty">No matches</div>`;
+      openList(); return;
+    }
+    list.innerHTML = addNewRow + items.map(n =>
+      `<div class="ta-item" data-value="${n.replace(/"/g,'&quot;')}">${n}</div>`
+    ).join('');
+    openList();
+  }
+
+  function setSource(arr) {
+    source = Array.isArray(arr) ? arr.slice() : [];
+    // Do NOT force open unless focused
+    if (focused) render(input.value);
+  }
+
+  list.addEventListener('mousedown', e => {
+    const el = e.target.closest('.ta-item');
+    if (!el) return;
+    const val = el.getAttribute('data-value');
+    if (val === '__ADD_NEW__') {
+      const name = prompt('Enter new name:') || '';
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      input.value = trimmed;
+      onPick && onPick(trimmed, true);
+      closeList();
+      return;
+    }
+    input.value = val || '';
+    onPick && onPick(input.value, false);
+    closeList();
+  });
+
+  input.addEventListener('input', e => render(e.target.value));
+  input.addEventListener('focus', () => { focused = true; render(input.value); });
+  input.addEventListener('blur',  () => { focused = false; setTimeout(closeList, 120); });
+
+  input.addEventListener('keydown', e => {
+    const items = Array.from(list.querySelectorAll('.ta-item'));
+    if (!items.length || list.style.display === 'none') return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault(); cursor = Math.min(cursor+1, items.length-1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault(); cursor = Math.max(cursor-1, 0);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const el = items[cursor] || null;
+      if (el) {
+        el.dispatchEvent(new MouseEvent('mousedown', {bubbles:true}));
+      } else {
+        onPick && onPick(input.value.trim(), false);
+        closeList();
+      }
+      return;
+    } else if (e.key === 'Escape') {
+      closeList(); return;
+    }
+    items.forEach((el, i) => el.setAttribute('aria-selected', i===cursor ? 'true':'false'));
+  });
+
+  return {
+    setChoices: (arr)=> setSource(arr),
+    getValue: () => input.value.trim(),
+    setValue: (v)=> { input.value = v || ''; /* don’t force open */ }
+  };
+}
+
+ function setupNewOrderTA(){
+  // Mount typeaheads
+  const custTA = attachTypeahead({ mountId:'newCustomerTA', placeholder:'Customer', onPick:()=>{} });
+  const prodTA = attachTypeahead({ mountId:'newProductTA',  placeholder:'Product',  onPick:()=>{} });
+  const pkgTA  = attachTypeahead({ mountId:'newPackageTA',  placeholder:'Package',  onPick:()=>{} });
+  const mthTA  = attachTypeahead({ mountId:'newMethodTA',   placeholder:'Method',   onPick:()=>{} });
+  const carTA  = attachTypeahead({ mountId:'newCarrierTA',  placeholder:'Carrier',  onPick:()=>{} });
+const srcTA = attachTypeahead({ mountId:'newSourceTA', placeholder:'Source', onPick:()=>updateChargedVisFromSource() });
+  // seed choices from catalogs
+  custTA?.setChoices(customers.map(x=>x.name));
+  prodTA?.setChoices(products.map(x=>x.name));
+  pkgTA ?.setChoices(packages.map(x=>x.name));
+  mthTA ?.setChoices(methods.map(x=>x.name));
+  carTA ?.setChoices(carriers.map(x=>x.name));
+  srcTA ?.setChoices(sources.map(x=>x.name));
+
+  // store globally for submit
+  window.__newOrderTAs = { custTA, prodTA, pkgTA, mthTA, carTA, srcTA };
+}
+
+// Close button
+document.getElementById('cancelNewOrder')?.addEventListener('click', ()=>{
+  document.getElementById('newOrderModal').style.display='none';
+});
+
+// Handle submit
+document.getElementById('newOrderForm')?.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+
+  const f = e.target;
+  const { custTA, prodTA, pkgTA, mthTA, carTA, srcTA } = (window.__newOrderTAs||{});
+
+  const customerName = custTA?.getValue()?.trim();
+  const productName  = prodTA?.getValue()?.trim();
+  const packageName  = pkgTA ?.getValue()?.trim();
+  const methodName   = mthTA ?.getValue()?.trim();
+  const carrierName  = carTA ?.getValue()?.trim();
+  const sourceName   = srcTA ?.getValue()?.trim();
+
+  if (!customerName || !productName || !packageName || !methodName || !carrierName) {
+    alert('Please fill Customer, Product, Package, Method, Carrier.');
+    return;
+  }
+
+  // ensure in catalogs
+  await ensureName(customersCol, customers, customerName);
+  await ensureName(productsCol , products , productName );
+  await ensureName(packagesCol , packages , packageName );
+  await ensureName(methodsCol  , methods  , methodName  );
+  await ensureName(carriersCol , carriers , carrierName );
+  if (sourceName) {
+  const inferredType = (sourceName.toLowerCase()==='wipinghub' || sourceName.toLowerCase()==='instore') ? 'Instore' : 'Online';
+  await ensureName(sourcesCol, sources, sourceName, { type: inferredType, color: colorFor(sourceName) });
+}
+
+
+  const shipPaid = parseFloat(f.shippingPaid.value)||0;
+  const custPaid = parseFloat(f.customerPaid.value)||0;
+
+  const newOrder = {
+    orderNumber: f.orderNumber.value,
+    customer:    customerName,
+    product:     productName,
+    pkg:         packageName,
+    weight:      Number(f.weight.value)||0,
+    quantity:    Number(f.quantity.value)||0,
+    method:      methodName,
+    carrier:     carrierName,
+    quotedAmount: (parseFloat(f.quotedAmount.value)||0).toFixed(2),
+    shippingPaid: shipPaid.toFixed(2),
+    customerPaid: custPaid.toFixed(2),
+    total:        (shipPaid + custPaid).toFixed(2),
+    comments:     f.comments.value || '',
+    clean:false, stic:false, metal:false, shipToday:false,
+    done:false, ready:false, shipped:false, rcvd:false,
+    shippedAt:null,
+    createdAt: new Date().toISOString(),
+    source:  sourceName || '',
+    charged: !!f.charged.checked,
+    entertainCall: f.entertainCall.value || ''
+  };
+
+  const ref = await addDoc(ordersCol, newOrder);
+  await logActivity({ action:'order:add', detail:`#${newOrder.orderNumber} (${newOrder.customer})`, targetType:'order', targetId: ref.id });
+
+  // reset + close
+  f.reset();
+  document.getElementById('newOrderModal').style.display='none';
+});
+
+function updateChargedVisFromSource() {
+  try {
+    const name = (window.__newOrderTAs?.srcTA?.getValue?.() || '').toLowerCase();
+    document.querySelector('#newOrderForm [name="charged"]')
+      .closest('label').style.display =
+      (name === 'wipinghub' || name === 'instore') ? 'inline-flex' : 'none';
+  } catch {}
+}
+
+
+
+    /* -------------------- Shipped (Office) -------------------- */
+    function renderShippedOrders() {
+      const c = $('#shippedOrders'); if (!c) return;
+if (!shippedLoaded) { c.innerHTML = '<p class="muted">Loading shipped orders…</p>'; return; }
+      let data = shippedOrders.slice().sort((a,b)=>{
+  const aT = a.shippedAt?.toDate ? a.shippedAt.toDate().getTime() : (a.shippedAt ? new Date(a.shippedAt).getTime() : 0);
+  const bT = b.shippedAt?.toDate ? b.shippedAt.toDate().getTime() : (b.shippedAt ? new Date(b.shippedAt).getTime() : 0);
+  return bT - aT;
+});
+
+
+      // filters
+      const field = $('#shippedSearchField')?.value;
+      const term  = $('#shippedSearchTerm')?.value?.trim().toLowerCase();
+      const m  = parseInt($('#searchMonth')?.value);
+      const d  = parseInt($('#searchDay')?.value);
+      const y  = parseInt($('#searchYear')?.value);
+      const useRange = $('#shippedUseRange')?.checked;
+
+      if (field === 'date' && m && d && y) {
+        let start = new Date(y, m-1, d);
+        let end   = new Date(y, m-1, d+1);
+        if (useRange) {
+          const me = parseInt($('#searchMonthEnd')?.value);
+          const de = parseInt($('#searchDayEnd')?.value);
+          const ye = parseInt($('#searchYearEnd')?.value);
+          if (me && de && ye) end = new Date(ye, me-1, de+1);
+        }
+        data = data.filter(o => {
+  const dt = o.shippedAt?.toDate ? o.shippedAt.toDate() : (o.shippedAt ? new Date(o.shippedAt) : null);
+  return dt && dt >= start && dt < end;
+});
+
+      } else if (field && field !== 'date' && term) {
+        data = data.filter(o => (o[field] ?? '').toString().toLowerCase().trim().includes(term));
+      }
+
+      if (!data.length) { c.innerHTML = '<p><em>No shipped orders match.</em></p>'; return; }
+
+      const cols = ['orderNumber','customer','product','pkg','weight','quantity','method','carrier','quotedAmount','shippingPaid','customerPaid','total','comments','clean','stic','metal','shipToday','shippedAt'];
+
+      let html = `<div class="card-table">
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Select</th><th>Source</th><th>Charged</th><th>Entertain Call</th>
+          ${cols.map(k=>`<th>${friendly(k)}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>`;
+
+
+      data.forEach(o => {
+  html += `<tr data-docid="${o.docId}">
+    <td><input type="checkbox" class="delete-checkbox" data-docid="${o.docId}"></td>
+    <td class="source-cell"><span class="source-dot" title="${o.source||''}" style="background:${colorFor(o.source)}"></span></td>
+    <td>${editableCheck('charged', o.docId, !!o.charged, 'shippedOrders')}</td>
+    <td>${editableText('entertainCall', o.docId, o.entertainCall, 'shippedOrders')}</td>
+    ${cols.map(k=>{
+      let v = o[k];
+if (k==='shippedAt' && v) v = fmtDateMaybe(v);
+      if (['quotedAmount','shippingPaid','customerPaid','total'].includes(k)) v = (parseFloat(v||0).toFixed(2));
+      return `<td>${v ?? ''}</td>`;
+    }).join('')}
+  </tr>`;
+});
+
+html += `</tbody></table></div></div>` +
+        (currentRole==='admin' ? '<button id="deleteShipped" class="btn-danger" style="margin-top:8px;">Delete Selected</button>' : '');
+      c.innerHTML = html;
+      bindEditors(c);
+      
+
+
+
+      if (currentRole === 'admin') {
+  const btn = document.getElementById('deleteShipped');
+  if (btn) {
+    btn.addEventListener('click', async () => {
+      const ids = Array.from(document.querySelectorAll('#shippedOrders .delete-checkbox:checked'))
+        .map(cb => cb.dataset.docid)
+        .filter(Boolean);
+
+      if (!ids.length) return alert('No shipped orders selected.');
+      if (!confirm(`Delete shipped orders: ${ids.join(', ')}?`)) return;
+
+      try {
+        await Promise.all(ids.map(id => deleteDoc(doc(db, 'shippedOrders', id))));
+        await logActivity({ action: 'order:delete', detail: `ids=${ids.join(',')}`, targetType: 'order' });
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete some documents.');
+      }
+    });
+  }
+}
+    }
+function toJsDate(v){ return v?.toDate ? v.toDate() : (v ? new Date(v) : null); }
+    /* -------------------- Warehouse View -------------------- */
+    function renderWarehouse() {
+      $('#content').innerHTML = `
+        <section>
+          <h2>Warehouse View (Active Orders)</h2>
+          <div id="warehouseOrders"></div>
+        </section>
+      `;
+      renderWarehouseOrders();
+      installCollapsers();
+    }
+    function renderWarehouseOrders() {
+      const c = $('#warehouseOrders'); if (!c) return;
+if (!ordersLoaded) { c.innerHTML = '<p class="muted">Loading orders…</p>'; return; }
+
+      const cols = ['orderNumber','product','pkg','weight','quantity','method','carrier'];
+      const checks = ['rcvd','ready','shipped'];
+const score = o => (o.done && o.ready) ? 3 : ((o.done || o.ready) ? 2 : (o.shipToday ? 1 : 0));
+const data = orders.slice().sort((a,b)=> score(b) - score(a));
+
+      let html = '<div class="card-table"><div class="table-scroll"><table class="data-table"><thead><tr>';
+      ['source'].concat(cols).concat(checks).forEach(k=> html += `<th>${friendly(k)}</th>`);
+      html += '</tr></thead><tbody></div></div>';
+
+      data.forEach(o=>{
+  let rowCls = '';
+  if (o.done && o.ready)        rowCls = ' both-row';
+  else if (o.done || o.ready)   rowCls = ' working-row';
+  else if (o.shipToday)         rowCls = ' urgent-row';
+  html += `<tr class="${rowCls.trim()}">
+  <td class="source-cell"><span class="source-dot" title="${(o.source||'').trim()||'Unknown'}" style="background:${colorFor(o.source)}"></span></td>
+  ${cols.map(k=>`<td>${o[k]??''}</td>`).join('')}
+  ${checks.map(k=>{
+    const chk = o[k] ? 'checked':''; const dis = canCheck(k,o)?'':'disabled';
+    return `<td><input type="checkbox" data-field="${k}" data-docid="${o.docId}" ${chk} ${dis} onchange="onToggle(this)"></td>`;
+  }).join('')}
+</tr>`;
+
+      });
+
+      html += '</tbody></table>';
+      c.innerHTML = html;
+    }
+
+    
+
+
+
+    /* -------------------- Admin View -------------------- */
+    function renderAdmin() {
+  const content = document.getElementById('content');
+  if (!content) return;
+
+  content.innerHTML = `
+    <!-- USER MANAGEMENT -->
+    <section class="form-section">
+      <h2>User Management</h2>
+      <div id="userManagement"></div>
+    </section>
+
+    <!-- CATALOG MANAGEMENT -->
+    <section class="form-section" style="border-left:4px solid #10b981;">
+  <h2>Catalog Management</h2>
+  <div class="row" style="margin-top:10px; gap:20px; align-items:flex-start; flex-wrap:wrap;">
+    <div style="flex:1; min-width:260px;">
+      <h3>Customers</h3>
+      <div id="adminCustomersList"></div>
+    </div>
+    <div style="flex:1; min-width:260px;">
+      <h3>Products</h3>
+      <div id="adminProductsList"></div>
+    </div>
+    <div style="flex:1; min-width:260px;">
+      <h3>Packages</h3>
+      <div id="adminPackagesList"></div>
+    </div>
+    <div style="flex:1; min-width:260px;">
+      <h3>Methods</h3>
+      <div id="adminMethodsList"></div>
+    </div>
+    <div style="flex:1; min-width:260px;">
+      <h3>Carriers</h3>
+      <div id="adminCarriersList"></div>
+    </div>
+    <div style="flex:1; min-width:260px;">
+      <h3>Sources</h3>
+      <div id="adminSourcesList"></div>
+    </div>
+  </div>
+</section>
+
+
+
+    <!-- ACTIVE ORDERS -->
+    <section class="active-section" data-maximizable>
+      <h2>Edit Active Orders</h2>
+      <div id="adminActiveOrders"></div>
+    </section>
+
+    <!-- SHIPPED ORDERS (standalone, no tabs) -->
+    <section class="form-section" data-maximizable>
+      <h2>Shipped Orders (Admin)</h2>
+      <div class="row" style="justify-content:space-between; margin-bottom:8px;">
+        <div class="row" style="gap:6px;">
+          <select id="adminShippedSearchField">
+            <option value="">Field</option>
+            <option value="orderNumber">Order Number</option>
+            <option value="customer">Customer</option>
+            <option value="date">Date</option>
+          </select>
+          <span id="adminSearchInputs"></span>
+          <button id="adminShippedSearchBtn">Go</button>
+          <button id="adminShippedResetBtn" class="btn-gray">Reset</button>
+        </div>
+        <button id="deleteAdminShipped" class="btn-danger">Delete Selected</button>
+      </div>
+      <div id="adminShippedOrders"></div>
+    </section>
+
+    <!-- ACCOUNT HISTORY (standalone, no tabs) -->
+    <section class="form-section">
+      <h2>Account History</h2>
+      <div class="row" style="flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+        <input type="date" id="actStart" class="small">
+        <span>to</span>
+        <input type="date" id="actEnd" class="small">
+        <input type="text" id="actEmail" placeholder="Filter by email" class="small" style="width:220px;">
+        <button id="actRefresh">Refresh</button>
+      </div>
+      <div id="activityList"></div>
+    </section>
+
+    <!-- REVENUE -->
+    <section class="form-section" style="border-left:4px solid #f59e0b;">
+      <h2>Revenue</h2>
+      <div class="row" style="flex-wrap:wrap; gap:6px; align-items:center;">
+        <span>Start:</span>
+        <input type="number" id="revM" class="small" placeholder="MM" min="1" max="12">
+        <input type="number" id="revD" class="small" placeholder="DD" min="1" max="31">
+        <input type="number" id="revY" class="small" placeholder="YYYY" min="2000">
+        <label style="margin-left:8px;"><input type="checkbox" id="revUseRange"> Range</label>
+        <span id="revRange" style="display:none; gap:6px; align-items:center; margin-left:6px;">
+          <span>End:</span>
+          <input type="number" id="revM2" class="small" placeholder="MM" min="1" max="12">
+          <input type="number" id="revD2" class="small" placeholder="DD" min="1" max="31">
+          <input type="number" id="revY2" class="small" placeholder="YYYY" min="2000">
+        </span>
+        <button id="calcRevBtn" style="margin-left:8px;">Calculate</button>
+      </div>
+      <div id="revResults" style="margin-top:10px;"></div>
+    </section>
+  `;
+
+  // Render static sections
+  renderUserManagement();
+  renderAdminActiveOrders();
+  renderCatalogAdmin();
+    installCollapsers();
+installMaximizers();
+
+  // Wire shipped search UI and buttons
+  const fieldSel = document.getElementById('adminShippedSearchField');
+  if (fieldSel) {
+    fieldSel.addEventListener('change', () => {
+      const field = fieldSel.value;
+      const c = document.getElementById('adminSearchInputs');
+      if (!c) return;
+
+      if (field === 'date') {
+        c.innerHTML = `
+          <input type="number" id="adminSearchMonth" placeholder="MM" class="small" min="1" max="12">
+          <input type="number" id="adminSearchDay" placeholder="DD" class="small" min="1" max="31">
+          <input type="number" id="adminSearchYear" placeholder="YYYY" class="small" min="2000">
+          <label style="margin-left:6px;"><input type="checkbox" id="adminShippedUseRange"> Range</label>
+          <span id="adminRangeDateInputs" style="display:none; margin-left:6px;">
+            <input type="number" id="adminSearchMonthEnd" placeholder="MM" class="small" min="1" max="12">
+            <input type="number" id="adminSearchDayEnd" placeholder="DD" class="small" min="1" max="31">
+            <input type="number" id="adminSearchYearEnd" placeholder="YYYY" class="small" min="2000">
+          </span>
+        `;
+        const chk = document.getElementById('adminShippedUseRange');
+        const span = () => document.getElementById('adminRangeDateInputs');
+        if (chk) chk.onchange = () => { const s = span(); if (s) s.style.display = chk.checked ? 'inline-flex' : 'none'; };
+      } else if (field === 'orderNumber' || field === 'customer') {
+        c.innerHTML = `<input type="text" id="adminShippedSearchTerm" placeholder="Search ${field}" class="small">`;
+      } else {
+        c.innerHTML = '';
+      }
+    });
+
+    document.getElementById('adminShippedSearchBtn')?.addEventListener('click', renderAdminShippedOrders);
+    document.getElementById('adminShippedResetBtn')?.addEventListener('click', () => {
+      fieldSel.value = '';
+      const c = document.getElementById('adminSearchInputs');
+      if (c) c.innerHTML = '';
+      renderAdminShippedOrders();
+    });
+  }
+
+  // Initial renders for shipped + activity + revenue wiring
+  renderAdminShippedOrders();
+  renderActivity();
+
+  // Activity auto-refresh wiring
+  document.getElementById('actRefresh')?.addEventListener('click', renderActivity);
+  ['actStart','actEnd','actEmail'].forEach(id=>{
+    document.getElementById(id)?.addEventListener('change', renderActivity);
+    document.getElementById(id)?.addEventListener('keyup', e => { if (id==='actEmail') renderActivity(); });
+  });
+
+  // Revenue wiring
+  document.getElementById('revUseRange')?.addEventListener('change', () => {
+    document.getElementById('revRange').style.display =
+      document.getElementById('revUseRange').checked ? 'inline-flex' : 'none';
+  });
+  document.getElementById('calcRevBtn')?.addEventListener('click', calcRevenueRange);
+
+  installCollapsers();
+}
+
+async function renderCatalogAdmin() {
+  const sections = [
+  { key:'Customers', list: customers,   loaded: customersLoaded, containerId:'adminCustomersList',  col: customersCol,  extra:null },
+  { key:'Products',  list: products,    loaded: productsLoaded,  containerId:'adminProductsList',   col: productsCol,   extra:null },
+  { key:'Packages',  list: packages,    loaded: packagesLoaded,  containerId:'adminPackagesList',   col: packagesCol,   extra:null },
+  { key:'Methods',   list: methods,     loaded: methodsLoaded,   containerId:'adminMethodsList',    col: methodsCol,    extra:null },
+  { key:'Carriers',  list: carriers,    loaded: carriersLoaded,  containerId:'adminCarriersList',   col: carriersCol,   extra:null },
+  { key:'Sources',   list: sources,     loaded: sourcesLoaded,   containerId:'adminSourcesList',    col: sourcesCol,    extra:'color+type' }, // stays with Color + Type
+];
+
+
+  for (const sec of sections) {
+    const host = document.getElementById(sec.containerId);
+    if (!host) continue;
+
+    // ---------- per-section header/cell helpers ----------
+    const extraHeads =
+      sec.extra === 'color+type' ? '<th>Color</th><th>Type</th>' :
+      sec.extra === 'color'      ? '<th>Color</th>' : '';
+
+    const extraCells = (x) => {
+      // extraCells inside renderCatalogAdmin()
+if (sec.extra === 'color+type') {
+  return `
+    <td style="width:140px;">
+      <span style="display:inline-block; width:18px; height:18px; border-radius:999px; vertical-align:middle; background:${x.color||colorFor(x.name)}; border:1px solid #e5e7eb;"></span>
+      <span style="margin-left:6px; font-size:12px; color:#64748b;">${x.color||''}</span>
+    </td>
+    <td style="width:110px;">${getSourceType(x)}</td>   <!-- was x.type || '' -->
+  `;
+}
+
+
+      if (sec.extra === 'color') {
+        return `
+          <td style="width:140px;">
+            <span style="display:inline-block; width:18px; height:18px; border-radius:999px; vertical-align:middle; background:${x.color||colorFor(x.name)}; border:1px solid #e5e7eb;"></span>
+            <span style="margin-left:6px; font-size:12px; color:#64748b;">${x.color||''}</span>
+          </td>`;
+      }
+      return '';
+    };
+
+    // ---------- rows ----------
+    const rows = (sec.list||[]).map(x => `
+      <tr data-id="${x.id}">
+        <td>${x.name}</td>
+        ${extraCells(x)}
+        <td style="width:70px;"><button class="btn-danger js-del">Delete</button></td>
+      </tr>
+    `).join('');
+
+    // ---------- add-row (tfoot) ----------
+    const tfoot =
+      sec.extra === 'color+type'
+        ? `<tfoot>
+             <tr>
+               <td><input type="text" class="js-new-name" placeholder="Add Source name"></td>
+               <td><input type="color" class="js-new-color" value="#64748b" title="Pick color"></td>
+               <td>
+                 <select class="js-new-type">
+                   <option value="Online" selected>Online</option>
+                   <option value="Instore">Instore</option>
+                 </select>
+               </td>
+               <td><button class="js-add">Add</button></td>
+             </tr>
+           </tfoot>`
+        : `<tfoot>
+             <tr>
+               <td><input type="text" class="js-new-name" placeholder="Add ${sec.key.slice(0,-1)} name"></td>
+               ${sec.extra === 'color' ? '<td><input type="color" class="js-new-color" value="#64748b"></td>' : ''}
+               <td><button class="js-add">Add</button></td>
+             </tr>
+           </tfoot>`;
+
+    const colspan = 2 + (sec.extra === 'color+type' ? 2 : sec.extra === 'color' ? 1 : 0);
+
+    // ---------- render ----------
+    host.innerHTML = `
+      <div class="card-table">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                ${extraHeads}
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                sec.loaded
+                  ? (rows || `<tr><td colspan="${colspan}"><em>No ${sec.key.toLowerCase()} yet.</em></td></tr>`)
+                  : `<tr><td colspan="${colspan}"><em>Loading ${sec.key.toLowerCase()}…</em></td></tr>`
+              }
+            </tbody>
+            ${tfoot}
+          </table>
+        </div>
+      </div>
+    `;
+
+    // ---------- delete handler ----------
+    host.querySelectorAll('.js-del').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const id = btn.closest('tr')?.getAttribute('data-id');
+        if (!id) return;
+        if (!confirm('Delete this item?')) return;
+        await deleteDoc(doc(sec.col, id));
+        logActivity({action:'catalog:delete', detail:`${sec.key.toLowerCase()}:${id}`});
+      });
+    });
+
+    // ---------- add handler ----------
+    host.querySelector('.js-add')?.addEventListener('click', async ()=>{
+      const nameInp  = host.querySelector('.js-new-name');
+      const colorInp = host.querySelector('.js-new-color');
+      const typeSel  = host.querySelector('.js-new-type');
+
+      const name = (nameInp?.value || '').trim();
+      if (!name) return alert('Enter a name.');
+      const exists = (sec.list||[]).some(x => (x.name||'').toLowerCase() === name.toLowerCase());
+      if (exists) { alert('That name already exists.'); return; }
+
+      const payload = { name };
+      if (sec.extra === 'color+type') {
+    const t = (typeSel?.value === 'Instore') ? 'Instore' : 'Online';
+    payload.color = colorInp?.value || '#64748b';
+    payload.type  = t;    // this field will be saved in Firestore
+  } else if (sec.extra === 'color') {
+    payload.color = colorInp?.value || '#64748b';
+  }
+
+  await addDoc(sec.col, payload);
+  logActivity({action:'catalog:add', detail:`${sec.key.toLowerCase()}:${name}`});
+  if (nameInp) nameInp.value = '';
+});
+
+  }
+}
+
+function getSourceType(s) {
+  // Use saved field, fallback by name if missing
+  if (s?.type === 'Instore' || s?.type === 'Online') return s.type;
+
+  const low = (s?.name || '').toLowerCase();
+  if (low === 'wipinghub' || low === 'instore') return 'Instore';
+  return 'Online';
+}
+
+
+
+function setupAdminTabs() {
+  const btnShip = document.getElementById('tabShipped');
+  const btnHist = document.getElementById('tabHistory');
+  const panelShip = document.getElementById('panelShipped');
+  const panelHist = document.getElementById('panelActivity');
+  const panelHistPH = document.getElementById('panelActivityPH');
+
+  if (!btnShip || !btnHist || !panelShip || !panelHist || !panelHistPH) return;
+
+  function activate(tab) {
+    const showShipped = (tab === 'shipped');
+
+    // Buttons
+    btnShip.setAttribute('aria-selected', showShipped ? 'true' : 'false');
+    btnHist.setAttribute('aria-selected', showShipped ? 'false' : 'true');
+
+    // Panels
+    panelShip.style.display = showShipped ? 'block' : 'none';
+    panelHist.style.display = showShipped ? 'none' : 'block';
+    panelHistPH.style.display = showShipped ? 'block' : 'none';
+
+    // When switching to history, render it
+    if (!showShipped) {
+      // remove placeholder now that it's active
+      panelHistPH.style.display = 'none';
+      if (typeof renderActivity === 'function') renderActivity();
+    }
+  }
+
+  btnShip.addEventListener('click', () => activate('shipped'));
+  btnHist.addEventListener('click', () => activate('history'));
+
+  // Default state
+  activate('shipped');
+}
+
+
+
+
+
+
+    async function renderUserManagement() {
+      const c = $('#userManagement'); if (!c) return;
+      try {
+        const snap = await getDocs(usersCol);
+        const users = snap.docs.map(d=>({uid:d.id, ...d.data()}));
+        let html = `<table class="data-table"><thead><tr><th>Email</th><th>Role</th><th>Created</th><th>Actions</th></tr></thead><tbody>`;
+        users.forEach(u=>{
+          html += `<tr>
+            <td>${u.email || 'N/A'}</td>
+            <td>${u.role}</td>
+            <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : ''}</td>
+            <td>
+              <select onchange="changeUserRole('${u.uid}', this.value)">
+                <option value="office" ${u.role==='office'?'selected':''}>Office</option>
+                <option value="warehouse" ${u.role==='warehouse'?'selected':''}>Warehouse</option>
+                <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+              </select>
+              <button class="btn-danger" style="margin-left:6px;" onclick="deleteUser('${u.uid}')">Delete</button>
+            </td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+        c.innerHTML = html;
+      } catch (e) {
+        c.innerHTML = '<p>Error loading users</p>'; console.error(e);
+      }
+    }
+
+    function setupAdminEvents() {
+      // revenue
+      const chk = $('#revUseRange'); const wrap = $('#revRange');
+      if (chk && wrap) chk.onchange = ()=> wrap.style.display = chk.checked ? 'inline-flex':'none';
+      $('#calcRevBtn')?.addEventListener('click', calcRevenueRange);
+
+      // shipped search inputs
+      $('#adminShippedSearchField')?.addEventListener('change', ()=>{
+        const field = $('#adminShippedSearchField')?.value;
+        const c = $('#adminSearchInputs'); if (!c) return;
+        if (field === 'date') {
+          c.innerHTML = `
+            <input type="number" id="adminSearchMonth" placeholder="MM" class="small" min="1" max="12">
+            <input type="number" id="adminSearchDay" placeholder="DD" class="small" min="1" max="31">
+            <input type="number" id="adminSearchYear" placeholder="YYYY" class="small" min="2000">
+            <label><input type="checkbox" id="adminShippedUseRange"> Range</label>
+            <span id="adminRangeDateInputs" style="display:none;">
+              <input type="number" id="adminSearchMonthEnd" placeholder="MM" class="small" min="1" max="12">
+              <input type="number" id="adminSearchDayEnd" placeholder="DD" class="small" min="1" max="31">
+              <input type="number" id="adminSearchYearEnd" placeholder="YYYY" class="small" min="2000">
+            </span>
+          `;
+          const chk2 = $('#adminShippedUseRange'); const span = ()=>$('#adminRangeDateInputs');
+          if (chk2) chk2.onchange = ()=> { const s=span(); if(s) s.style.display = chk2.checked ? 'inline-flex':'none'; };
+        } else if (field === 'orderNumber' || field === 'customer') {
+          c.innerHTML = `<input type="text" id="adminShippedSearchTerm" placeholder="Search ${field}" class="small">`;
+        } else {
+          c.innerHTML = '';
+        }
+      });
+      $('#adminShippedSearchBtn')?.addEventListener('click', ()=> renderAdminShippedOrders());
+      $('#adminShippedResetBtn')?.addEventListener('click', ()=>{
+        $('#adminShippedSearchField').value=''; $('#adminSearchInputs').innerHTML=''; renderAdminShippedOrders();
+      });
+
+      // activity
+      $('#actRefresh')?.addEventListener('click', renderActivity);
+      installCollapsers();
+    }
+
+    /* -------------------- Revenue (range-capable) -------------------- */
+    function calcRevenueRange() {
+      const m = parseInt($('#revM').value), d = parseInt($('#revD').value), y = parseInt($('#revY').value);
+      const useRange = $('#revUseRange')?.checked;
+      const c = $('#revResults');
+
+      if (!m || !d || !y) { c.innerHTML = '<p style="color:#d33;">Fill in start date.</p>'; return; }
+
+      let start = new Date(y, m-1, d), end = new Date(y, m-1, d+1);
+      if (useRange) {
+        const m2 = parseInt($('#revM2').value), d2 = parseInt($('#revD2').value), y2 = parseInt($('#revY2').value);
+        if (!m2 || !d2 || !y2) { c.innerHTML = '<p style="color:#d33;">Fill in end date.</p>'; return; }
+        end = new Date(y2, m2-1, d2+1);
+      }
+
+      const dayOrders = shippedOrders.filter(o => {
+  const od = toJsDate(o.shippedAt);
+  return od && od >= start && od < end;
+});
+      const title = `${(start.getMonth()+1)}/${start.getDate()}/${start.getFullYear()}${useRange?` – ${(end.getMonth()+1)}/${end.getDate()-1}/${end.getFullYear()}`:''}`;
+if (!dayOrders.length) { c.innerHTML = `<p>No orders shipped on ${title}</p>`; return; }
+
+const sum = arr => arr.reduce((a,b)=> a + (+b||0), 0);
+
+// overall totals (unchanged)
+const tq  = sum(dayOrders.map(o=>+o.quotedAmount||0));
+const ts  = sum(dayOrders.map(o=>+o.shippingPaid||0));
+const tcp = sum(dayOrders.map(o=>+o.customerPaid||0));
+const tr  = sum(dayOrders.map(o=>+o.total||0));
+
+// split by source type
+const withType = dayOrders.map(o => ({ o, t: getSourceType({ name:o.source, type: (sources.find(s=> (s.name||'').toLowerCase()===(o.source||'').toLowerCase())?.type) }) }));
+const inOrders = withType.filter(x => x.t === 'Instore').map(x=>x.o);
+const onOrders = withType.filter(x => x.t !== 'Instore').map(x=>x.o);
+
+const itq  = sum(inOrders.map(o=>+o.quotedAmount||0));
+const its  = sum(inOrders.map(o=>+o.shippingPaid||0));
+const itcp = sum(inOrders.map(o=>+o.customerPaid||0));
+const itr  = sum(inOrders.map(o=>+o.total||0));
+
+const otq  = sum(onOrders.map(o=>+o.quotedAmount||0));
+const ots  = sum(onOrders.map(o=>+o.shippingPaid||0));
+const otcp = sum(onOrders.map(o=>+o.customerPaid||0));
+const otr  = sum(onOrders.map(o=>+o.total||0));
+
+c.innerHTML = `
+  <div style="background:#f8f9fa; padding:14px; border-radius:10px;">
+    <h3>Revenue for ${title}</h3>
+    <p><strong>Orders Shipped:</strong> ${dayOrders.length}</p>
+    <p><strong>Total Quoted:</strong> ${tq.toFixed(2)}</p>
+    <p><strong>Total Shipping Paid:</strong> ${ts.toFixed(2)}</p>
+    <p><strong>Total Customer Paid:</strong> ${tcp.toFixed(2)}</p>
+    <p><strong>Total Revenue:</strong> ${tr.toFixed(2)}</p>
+  </div>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px; margin-top:10px;">
+    <div style="background:#ecfdf5; padding:12px; border-radius:10px; border:1px solid #10b98122;">
+      <h4 style="margin:0 0 8px;">Instore</h4>
+      <p><strong>Orders:</strong> ${inOrders.length}</p>
+      <p><strong>Quoted:</strong> ${itq.toFixed(2)}</p>
+      <p><strong>Shipping:</strong> ${its.toFixed(2)}</p>
+      <p><strong>Customer Paid:</strong> ${itcp.toFixed(2)}</p>
+      <p><strong>Revenue:</strong> ${itr.toFixed(2)}</p>
+    </div>
+
+    <div style="background:#eef2ff; padding:12px; border-radius:10px; border:1px solid #3b82f622;">
+      <h4 style="margin:0 0 8px;">Online</h4>
+      <p><strong>Orders:</strong> ${onOrders.length}</p>
+      <p><strong>Quoted:</strong> ${otq.toFixed(2)}</p>
+      <p><strong>Shipping:</strong> ${ots.toFixed(2)}</p>
+      <p><strong>Customer Paid:</strong> ${otcp.toFixed(2)}</p>
+      <p><strong>Revenue:</strong> ${otr.toFixed(2)}</p>
+    </div>
+  </div>
+
+  <details style="margin-top:10px;">
+    <summary>Order Details</summary>
+    <table class="data-table" style="margin-top:8px;">
+      <thead><tr><th>Order #</th><th>Customer</th><th>Product</th><th>Source</th><th>Type</th><th>Quoted</th><th>Shipping</th><th>Customer Paid</th><th>Total</th></tr></thead>
+      <tbody>${withType.map(({o,t})=>`
+        <tr>
+          <td>${o.orderNumber||''}</td>
+          <td>${o.customer||''}</td>
+          <td>${o.product||''}</td>
+          <td>${o.source||''}</td>
+          <td>${t}</td>
+          <td>${(+o.quotedAmount||0).toFixed(2)}</td>
+          <td>${(+o.shippingPaid||0).toFixed(2)}</td>
+          <td>${(+o.customerPaid||0).toFixed(2)}</td>
+          <td>${(+o.total||0).toFixed(2)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </details>
+`;
+
+    }
+
+    /* -------------------- Activity (human-readable) -------------------- */
+async function renderActivity() {
+  const c = $('#activityList'); if (!c) return;
+  try {
+    const maps = await buildActivityMaps();
+
+    const qy = query(activityCol, orderBy('ts','desc'));
+    const snap = await getDocs(qy);
+    const items = snap.docs.map(d=>({id:d.id, ...d.data()}))
+      .filter(x => x.ts && x.ts.toDate)
+      .map(x => ({...x, date: x.ts.toDate()}));
+
+    // Filters
+    const startVal = $('#actStart')?.value || '';
+    const endVal   = $('#actEnd')?.value   || '';
+    const emailVal = ($('#actEmail')?.value||'').trim().toLowerCase();
+
+    const start = startVal ? new Date(`${startVal}T00:00:00`) : null;
+    const end   = endVal   ? new Date(`${endVal}T23:59:59`)   : null;
+
+    const filtered = items.filter(x=>{
+      const okS = start ? x.date >= start : true;
+      const okE = end   ? x.date <= end   : true;
+      const okM = emailVal ? (x.email||'').toLowerCase().includes(emailVal) : true;
+      return okS && okE && okM;
+    });
+
+    if (!filtered.length) { c.innerHTML = '<p><em>No activity in range.</em></p>'; return; }
+
+    // Group by ISO day
+    const byDay = {};
+    for (const it of filtered) {
+      const iso = it.date.toISOString().slice(0,10);
+      (byDay[iso] ||= []).push(it);
+    }
+
+    const days = Object.keys(byDay).sort((a,b)=> b.localeCompare(a));
+
+    let html = '';
+    days.forEach(isoDay=>{
+      const pretty = new Date(isoDay+'T00:00:00').toLocaleDateString();
+      html += `<h3 style="margin-top:12px;">${pretty}</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>User</th>
+            <th>Role</th>
+            <th>Action</th>
+            <th>Target</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      byDay[isoDay].sort((a,b)=> b.date - a.date).forEach(it=>{
+        const user = it.email || maps.users[it.uid] || it.uid || '';
+        const role = (it.role||'').toString().toUpperCase();
+        const action = it.action || '';
+        const target = humanizeTarget(it, maps);
+        const detail = humanizeDetail(it.detail||'', maps);
+        const time = it.date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+        html += `<tr>
+          <td>${time}</td>
+          <td>${user}</td>
+          <td>${role}</td>
+          <td>${action}</td>
+          <td>${target}</td>
+          <td>${detail}</td>
+        </tr>`;
+      });
+
+      html += `</tbody></table>`;
+    });
+
+    c.innerHTML = html;
+  } catch (e) {
+    c.innerHTML = '<p>Error loading activity.</p>'; 
+    console.error(e);
+  }
+}
+
+    /* -------------------- Admin Active / Shipped -------------------- */
+    function renderAdminActiveOrders() {
+  const c = document.getElementById('adminActiveOrders'); if (!c) return;
+  if (!ordersLoaded) { c.innerHTML = '<p class="muted">Loading active orders…</p>'; return; }
+
+  // ---- read current filter controls (if already rendered)
+  const field   = c.querySelector('#adminActiveSearchField')?.value || '';
+  const termVal = c.querySelector('#adminActiveSearchTerm')?.value?.trim().toLowerCase();
+  const m       = parseInt(c.querySelector('#adminActiveSearchMonth')?.value);
+  const d       = parseInt(c.querySelector('#adminActiveSearchDay')?.value);
+  const y       = parseInt(c.querySelector('#adminActiveSearchYear')?.value);
+  const useRange= c.querySelector('#adminActiveUseRange')?.checked;
+
+  // ---- base data + default sort (priority)
+  const score = o => (o.done && o.ready) ? 3 : ((o.done || o.ready) ? 2 : (o.shipToday ? 1 : 0));
+  let data = orders.slice().sort((a,b)=> score(b) - score(a));
+
+  // ---- apply filter
+  if (field === 'date' && m && d && y) {
+    let start = new Date(y, m-1, d);
+    let end   = new Date(y, m-1, d+1);
+    if (useRange) {
+      const me = parseInt(c.querySelector('#adminActiveSearchMonthEnd')?.value);
+      const de = parseInt(c.querySelector('#adminActiveSearchDayEnd')?.value);
+      const ye = parseInt(c.querySelector('#adminActiveSearchYearEnd')?.value);
+      if (me && de && ye) end = new Date(ye, me-1, de+1);
+    }
+    data = data.filter(o => {
+      const dt = o.createdAt ? new Date(o.createdAt) : null;
+      return dt && dt >= start && dt < end;
+    });
+  } else if (field && field !== 'date' && termVal) {
+    data = data.filter(o => ((o[field] ?? '') + '').toLowerCase().includes(termVal));
+  }
+
+  // ---- toolbar
+  const toolbar = `
+    <div class="row" style="gap:8px; align-items:center; margin-bottom:8px; justify-content:space-between;">
+      <div class="row" style="gap:6px; align-items:center;">
+        <select id="adminActiveSearchField">
+          <option value="">Field</option>
+          <option value="orderNumber" ${field==='orderNumber'?'selected':''}>Order Number</option>
+          <option value="customer" ${field==='customer'?'selected':''}>Customer</option>
+          <option value="date" ${field==='date'?'selected':''}>Date</option>
+        </select>
+        <span id="adminActiveSearchInputs"></span>
+        <button id="adminActiveSearchBtn">Go</button>
+        <button id="adminActiveResetBtn" class="btn-gray">Reset</button>
+        <label id="adminActiveRangeWrap" style="margin-left:8px; display:${field==='date'?'inline-flex':'none'}; align-items:center; gap:6px;">
+          <input type="checkbox" id="adminActiveUseRange" ${useRange?'checked':''}> <span>Range</span>
+        </label>
+      </div>
+      <button id="deleteAdminActive" class="btn-danger">Delete Selected</button>
+    </div>
+  `;
+
+  // ---- table
+  const cols   = ['orderNumber','customer','product','pkg','weight','quantity','method','carrier','quotedAmount','shippingPaid','customerPaid','total','comments'];
+  const checks = ['clean','stic','metal','shipToday','done','ready','shipped'];
+
+  let html = toolbar + `<div class="card-table">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Select</th><th>Actions</th><th>Source</th><th>Charged</th><th>Entertain Call</th>
+            ${cols.map(k=>`<th>${friendly(k)}</th>`).join('')}
+            ${checks.map(k=>`<th>${friendly(k)}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>`;
+
+  if (!data.length) {
+    c.innerHTML = toolbar + '<p><em>No active orders match.</em></p>';
+    wireAdminActiveToolbar();
+    return;
+  }
+
+  data.forEach(o => {
+    let rowCls = '';
+    if (o.done && o.ready)        rowCls = ' both-row';
+    else if (o.done || o.ready)   rowCls = ' working-row';
+    else if (o.shipToday)         rowCls = ' urgent-row';
+
+    html += `
+      <tr class="${rowCls}">
+        <td><input type="checkbox" class="delete-checkbox" data-docid="${o.docId}"></td>
+        <td><button onclick="editOrder('${o.docId}')">Edit</button></td>
+        <td class="source-cell"><span class="source-dot" title="${o.source||''}" style="background:${colorFor(o.source)}"></span></td>
+        <td>${editableCheck('charged', o.docId, !!o.charged, 'orders')}</td>
+        <td>${editableText('entertainCall', o.docId, o.entertainCall, 'orders')}</td>
+        ${cols.map(k=>{
+          let v = o[k] ?? '';
+          if (['quotedAmount','shippingPaid','customerPaid','total'].includes(k)) v = (parseFloat(v||0).toFixed(2));
+          return `<td>${v}</td>`;
+        }).join('')}
+        ${checks.map(k=>{
+          const chk = o[k] ? 'checked' : '';
+          return `<td><input type="checkbox" data-field="${k}" data-docid="${o.docId}" ${chk} onchange="onToggle(this)"></td>`;
+        }).join('')}
+      </tr>`;
+  });
+
+  html += `</tbody></table></div></div>`;
+  c.innerHTML = html;
+
+  bindEditors(c);
+
+  // delete selected
+  c.querySelector('#deleteAdminActive')?.addEventListener('click', async () => {
+    const ids = Array.from(c.querySelectorAll('.delete-checkbox:checked'))
+      .map(cb => cb.dataset.docid).filter(Boolean);
+    if (!ids.length) return alert('No orders selected.');
+    if (!confirm(`Delete orders: ${ids.join(', ')}?`)) return;
+    await Promise.all(ids.map(id => deleteDoc(doc(ordersCol, id))));
+    logActivity({ action:'order:delete', detail:`ids=${ids.join(',')}`, targetType:'order' });
+  });
+
+  // ---- toolbar wiring
+  function wireAdminActiveToolbar() {
+    const inputsHost = c.querySelector('#adminActiveSearchInputs');
+    const fselEl     = c.querySelector('#adminActiveSearchField');
+    const rangeWrap  = c.querySelector('#adminActiveRangeWrap');
+
+    function renderInputs() {
+      const fsel = fselEl?.value || '';
+      if (rangeWrap) rangeWrap.style.display = (fsel==='date') ? 'inline-flex' : 'none';
+
+      if (fsel === 'date') {
+        inputsHost.innerHTML = `
+          <input type="number" id="adminActiveSearchMonth" placeholder="MM" class="small" min="1" max="12">
+          <input type="number" id="adminActiveSearchDay" placeholder="DD" class="small" min="1" max="31">
+          <input type="number" id="adminActiveSearchYear" placeholder="YYYY" class="small" min="2000">
+          <span id="adminActiveRangeInputs" style="display:${c.querySelector('#adminActiveUseRange')?.checked?'inline-flex':'none'}; gap:6px; margin-left:6px;">
+            <input type="number" id="adminActiveSearchMonthEnd" placeholder="MM" class="small" min="1" max="12">
+            <input type="number" id="adminActiveSearchDayEnd" placeholder="DD" class="small" min="1" max="31">
+            <input type="number" id="adminActiveSearchYearEnd" placeholder="YYYY" class="small" min="2000">
+          </span>`;
+        const chk = c.querySelector('#adminActiveUseRange');
+        const span = () => c.querySelector('#adminActiveRangeInputs');
+        if (chk) chk.onchange = () => { const s = span(); if (s) s.style.display = chk.checked ? 'inline-flex' : 'none'; };
+      } else if (fsel === 'orderNumber' || fsel === 'customer') {
+        inputsHost.innerHTML = `<input type="text" id="adminActiveSearchTerm" placeholder="Search ${fsel}" class="small">`;
+      } else {
+        inputsHost.innerHTML = '';
+      }
+    }
+
+    renderInputs();
+    fselEl?.addEventListener('change', renderInputs);
+    c.querySelector('#adminActiveSearchBtn')?.addEventListener('click', () => renderAdminActiveOrders());
+    c.querySelector('#adminActiveResetBtn')?.addEventListener('click', () => {
+      fselEl.value = '';
+      inputsHost.innerHTML = '';
+      if (rangeWrap) rangeWrap.style.display = 'none';
+      renderAdminActiveOrders();
+    });
+  }
+
+  wireAdminActiveToolbar();
+}
+
+    function renderAdminShippedOrders() {
+  const c = document.querySelector('#adminShippedOrders'); if (!c) return;
+if (!shippedLoaded) { c.innerHTML = '<p class="muted">Loading shipped orders…</p>'; return; }
+
+
+  // Start with a clean copy
+  // sort
+let data = shippedOrders.slice().sort((a,b)=>{
+  const aT = toJsDate(a.shippedAt)?.getTime() || 0;
+  const bT = toJsDate(b.shippedAt)?.getTime() || 0;
+  return bT - aT;
+});
+
+// filter by date
+
+
+  // --- Filters ---
+  const field = document.querySelector('#adminShippedSearchField')?.value;
+  const term  = document.querySelector('#adminShippedSearchTerm')?.value?.trim().toLowerCase();
+  const m  = parseInt(document.querySelector('#adminSearchMonth')?.value);
+  const d  = parseInt(document.querySelector('#adminSearchDay')?.value);
+  const y  = parseInt(document.querySelector('#adminSearchYear')?.value);
+  const useRange = document.querySelector('#adminShippedUseRange')?.checked;
+
+  if (field === 'date' && m && d && y) {
+  let start = new Date(y, m - 1, d);
+  let end   = new Date(y, m - 1, d + 1);
+  if (useRange) {
+    const me = parseInt(document.querySelector('#adminSearchMonthEnd')?.value);
+    const de = parseInt(document.querySelector('#adminSearchDayEnd')?.value);
+    const ye = parseInt(document.querySelector('#adminSearchYearEnd')?.value);
+    if (me && de && ye) end = new Date(ye, me - 1, de + 1);
+  }
+  data = data.filter(o => {
+    const dt = toJsDate(o.shippedAt);
+    return dt && dt >= start && dt < end;
+  });
+}
+ else if (field && field !== 'date' && term) {
+    data = data.filter(o => ((o[field] ?? '') + '').toLowerCase().includes(term));
+  }
+
+  if (!data.length) {
+    c.innerHTML = '<p><em>No shipped orders match.</em></p>';
+    return;
+  }
+
+  const cols = [
+    'orderNumber','customer','product','pkg','weight','quantity','method','carrier',
+    'quotedAmount','shippingPaid','customerPaid','total','comments','clean','stic','metal','shipToday','shippedAt'
+  ];
+
+
+  let html = `<div class="card-table">
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Select</th>
+          <th>Source</th>
+          <th>Charged</th>
+          <th>Entertain Call</th>
+          ${cols.map(k => `<th>${friendly(k)}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>`;
+
+
+  data.forEach(o => {
+    // Ensure we have the real doc id from Firestore
+    const docId = o.docId || o.id; // fallback to .id if you haven’t migrated all code yet
+
+    html += `
+      <tr data-docid="${docId || ''}">
+        <td>
+          <input type="checkbox" class="delete-checkbox" data-docid="${docId || ''}">
+        </td>
+        <td class="source-cell">
+          <span class="source-dot" title="${o.source || ''}" style="background:${colorFor(o.source)}"></span>
+        </td>
+        <td>
+          ${editableCheck('charged', docId, !!o.charged, 'shippedOrders')}
+        </td>
+        <td>
+          ${editableText('entertainCall', docId, o.entertainCall, 'shippedOrders')}
+        </td>
+        ${cols.map(k => {
+          let v = o[k];
+
+          if (k === 'shippedAt' && v) v = fmtDateMaybe(v);
+
+          if (['quotedAmount','shippingPaid','customerPaid','total'].includes(k)) {
+            v = (parseFloat(v || 0).toFixed(2));
+          }
+          return `<td>${v ?? ''}</td>`;
+        }).join('')}
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table></div></div>
+<button id="deleteAdminShipped" class="btn-danger" style="margin-top:8px;">Delete Selected</button>`;
+
+  c.innerHTML = html;
+
+
+
+
+
+  // Re-bind inline editors for shipped table
+  bindEditors(c, true);
+
+  // --- Delete Selected (by REAL Firestore IDs) ---
+  const delBtn = document.getElementById('deleteAdminShipped');
+  if (delBtn) {
+    delBtn.addEventListener('click', async () => {
+      const ids = Array.from(document.querySelectorAll('#adminShippedOrders .delete-checkbox:checked'))
+        .map(cb => cb.getAttribute('data-docid'))
+        .filter(id => id && id.trim().length > 0);
+
+      if (!ids.length) {
+        alert('No shipped orders selected.');
+        return;
+      }
+
+      if (!confirm(`Delete shipped orders: ${ids.join(', ')}?`)) {
+        return;
+      }
+
+      try {
+        await Promise.all(ids.map(id => deleteDoc(doc(db, 'shippedOrders', id))));
+        await logActivity({
+          action: 'order:delete',
+          detail: `ids=${ids.join(',')}`,
+          targetType: 'order'
+        });
+        alert('Selected shipped orders deleted.');
+      } catch (err) {
+        console.error('Error deleting shipped orders:', err);
+        alert('Failed to delete some shipped orders.');
+      }
+    });
+  }
+}
+
+    /* -------------------- Toggle + Move Active <-> Shipped -------------------- */
+    async function onToggle(el) {
+  const field = el.dataset.field;
+  const docId = el.dataset.docid;
+  const val = el.checked;
+
+  const order   = orders.find(o => o.docId === docId);
+  const shipped = shippedOrders.find(o => o.docId === docId);
+  const inShipped = !!shipped;
+
+  const ref = doc(db, (inShipped ? shippedCol : ordersCol).path, docId);
+
+  try {
+    await updateDoc(ref, { [field]: val });
+
+    // cascade unchecks
+    if ((field === 'done' && !val) || (field === 'rcvd' && !val)) await updateDoc(ref, { ready:false, shipped:false });
+    if (field === 'ready' && !val) await updateDoc(ref, { shipped:false });
+
+    if (field === 'shipped') {
+      if (val && !inShipped) {
+        const { docId: _, ...body } = order;
+        body.shippedAt = serverTimestamp();               // ✅ Firestore Timestamp
+        await deleteDoc(doc(ordersCol, docId));
+        const newRef = await addDoc(shippedCol, body);
+        logActivity({ action:`order:toggle:${field}`, detail:'moved to shipped', targetType:'order', targetId:newRef.id });
+        return;
+      }
+      if (!val && inShipped) {
+        const { docId: _, ...body } = shipped;
+        delete body.shippedAt;
+        await deleteDoc(doc(shippedCol, docId));
+        const newRef = await addDoc(ordersCol, body);
+        logActivity({ action:`order:toggle:${field}`, detail:'moved back to active', targetType:'order', targetId:newRef.id });
+        return;
+      }
+    }
+
+    logActivity({ action:`order:toggle:${field}`, detail:`id=${docId} -> ${val}`, targetType:'order', targetId:docId });
+  } catch (e) {
+    console.error(e);
+    el.checked = !val; // revert
+  }
+}
+window.onToggle = onToggle;
+function showSplash(){ const el = document.getElementById('splash'); if (el) el.style.display = 'grid'; }
+function hideSplash(){
+  const el = document.getElementById('splash');
+  if (!el) return;
+  el.classList.add('splash-fade-out');
+  el.addEventListener('animationend', ()=> el.remove(), { once:true });
+}
+
+
+    /* -------------------- Edit Modal -------------------- */
+    $('#cancelEdit').addEventListener('click', ()=> $('#editModal').style.display='none');
+
+    function updateEditChargedVisibility() {
+      const v = $('#editSource').value?.toLowerCase();
+      const wrap = $('#editChargedWrap');
+      wrap.style.display = (v === 'wipinghub' || v === 'instore') ? 'inline-flex' : 'none';
+    }
+    $('#editSource').addEventListener('change', updateEditChargedVisibility);
+
+    window.editOrder = async (orderId) => {
+  const o = orders.find(x => x.docId === orderId);
+  if (!o) return alert('Order not found');
+      const f = $('#editOrderForm');
+      $('#editOrderId').value = orderId;
+
+      f.orderNumber.value = o.orderNumber || '';
+      f.customer.value    = o.customer || '';
+      f.product.value     = o.product || '';
+      f.pkg.value         = o.pkg || '';
+      f.weight.value      = o.weight || '';
+      f.quantity.value    = o.quantity || '';
+      f.method.value      = o.method || '';
+      f.carrier.value     = o.carrier || '';
+      f.quotedAmount.value= o.quotedAmount || '';
+      f.shippingPaid.value= o.shippingPaid || '';
+      f.customerPaid.value= o.customerPaid || '';
+      f.comments.value    = o.comments || '';
+      f.clean.checked     = !!o.clean;
+      f.stic.checked      = !!o.stic;
+      f.metal.checked     = !!o.metal;
+      f.shipToday.checked = !!o.shipToday;
+
+      f.source.value        = o.source || '';
+      f.charged.checked     = !!o.charged;
+      f.entertainCall.value = o.entertainCall || '';
+      updateEditChargedVisibility();
+
+      $('#editModal').style.display='block';
+    };
+
+    $('#editOrderForm').addEventListener('submit', async e=>{
+      e.preventDefault();
+      const f = e.target; const id = $('#editOrderId').value;
+
+      const ship = parseFloat(f.shippingPaid.value)||0;
+      const cust = parseFloat(f.customerPaid.value)||0;
+
+      const updated = {
+        orderNumber:f.orderNumber.value, customer:f.customer.value, product:f.product.value,
+        pkg:f.pkg.value, weight:+f.weight.value||0, quantity:+f.quantity.value||0,
+        method:f.method.value, carrier:f.carrier.value,
+        quotedAmount: (parseFloat(f.quotedAmount.value)||0).toFixed(2),
+        shippingPaid: ship.toFixed(2), customerPaid: cust.toFixed(2),
+        total: (ship+cust).toFixed(2),
+        comments:f.comments.value||'',
+        clean:f.clean.checked, stic:f.stic.checked, metal:f.metal.checked, shipToday:f.shipToday.checked,
+        source:f.source.value||'', charged: f.charged.checked, entertainCall: f.entertainCall.value||''
+      };
+
+      try {
+        await updateDoc(doc(db,'orders',id), updated);
+        $('#editModal').style.display='none';
+        logActivity({action:'order:update', detail:`#${updated.orderNumber} (${updated.customer})`, targetType:'order', targetId:id});
+      } catch (err) { alert('Error updating: '+err.message); }
+    });
+
+    // Ensure a name exists (case-insensitive). Returns docId of the name.
+async function ensureName(col, list, name, extra={}) {
+  const n = (name || '').trim();
+  if (!n) return null;
+  const existing = list.find(x => (x.name || '').toLowerCase() === n.toLowerCase());
+  if (existing) return existing.id;
+  const ref = await addDoc(col, { name:n, ...extra });
+  return ref.id;
+}
+
+
+// Timestamp/string formatter (for shippedAt)
+function fmtDateMaybe(ts) {
+  if (!ts) return '';
+  try {
+    if (ts.toDate) return ts.toDate().toLocaleString(undefined,{dateStyle:'medium', timeStyle:'short'});
+    return new Date(ts).toLocaleString(undefined,{dateStyle:'medium', timeStyle:'short'});
+  } catch { return ''; }
+}
+
+
+    /* -------------------- Admin user actions exposed -------------------- */
+    window.changeUserRole = async (uid, role)=>{
+      try {
+        await updateDoc(doc(db,'users',uid), {role});
+        logActivity({action:'user:role', detail:`uid=${uid} -> ${role}`, targetType:'user', targetId:uid});
+        renderUserManagement();
+      } catch(e){ alert('Error changing role: '+e.message); }
+    };
+    window.deleteUser = async (uid)=>{
+      if (!confirm('Really delete this user?')) return;
+      try {
+        await deleteDoc(doc(db,'users',uid));
+        logActivity({action:'user:delete', detail:`uid=${uid}`, targetType:'user', targetId:uid});
+        renderUserManagement();
+      } catch(e){ alert('Error deleting user: '+e.message); }
+    };
+  </script>
+</body>
+</html>
